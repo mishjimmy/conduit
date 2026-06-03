@@ -143,6 +143,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@conduit/types':
+        specifier: workspace:*
+        version: link:../types
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -159,6 +162,9 @@ importers:
         specifier: ^2.6.0
         version: 2.6.1
     devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.19
       '@types/react':
         specifier: ^19.0.7
         version: 19.2.16

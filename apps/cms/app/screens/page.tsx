@@ -54,9 +54,14 @@ export default function ScreensPage() {
     <main className="mx-auto max-w-4xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Screens</h1>
-        <Link className="text-sm text-primary underline" href="/pair">
-          Pair a screen
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link className="text-sm text-primary underline" href="/layouts">
+            Layouts
+          </Link>
+          <Link className="text-sm text-primary underline" href="/pair">
+            Pair a screen
+          </Link>
+        </div>
       </div>
 
       {loading ? (

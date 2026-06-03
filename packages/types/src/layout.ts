@@ -23,14 +23,14 @@ export const slideshowLayerSchema = z.object({
 export const videoLayerSchema = z.object({
   ...baseLayer,
   type: z.literal("video"),
-  hlsUrl: z.string().url(),
+  hlsUrl: z.string(),
 });
 
 export const cameraGridLayerSchema = z.object({
   ...baseLayer,
   type: z.literal("camera-grid"),
   /** Resolved single HLS stream produced by FFmpeg xstack compositing. */
-  hlsUrl: z.string().url(),
+  hlsUrl: z.string(),
   streamId: z.string(),
 });
 
@@ -38,7 +38,7 @@ export const pipPositionSchema = z.enum(["TR", "TL", "BR", "BL"]);
 export const pipLayerSchema = z.object({
   ...baseLayer,
   type: z.literal("pip"),
-  hlsUrl: z.string().url(),
+  hlsUrl: z.string(),
   streamId: z.string(),
   pipCorner: pipPositionSchema.default("BR"),
 });
@@ -71,7 +71,7 @@ export const clockLayerSchema = z.object({
 export const embedLayerSchema = z.object({
   ...baseLayer,
   type: z.literal("embed"),
-  url: z.string().url(),
+  url: z.string(),
 });
 
 export const layerSchema = z.discriminatedUnion("type", [
