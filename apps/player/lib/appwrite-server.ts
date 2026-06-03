@@ -1,4 +1,4 @@
-import { Client, Databases } from "node-appwrite";
+import { Client, Databases, Storage } from "node-appwrite";
 
 /**
  * Privileged client used by the player's *server* routes (these run on the
@@ -10,5 +10,5 @@ export function createAdminClient() {
     .setEndpoint(process.env.APPWRITE_ENDPOINT!)
     .setProject(process.env.APPWRITE_PROJECT_ID!)
     .setKey(process.env.APPWRITE_API_KEY!);
-  return { client, databases: new Databases(client) };
+  return { client, databases: new Databases(client), storage: new Storage(client) };
 }

@@ -102,6 +102,22 @@
                     "size": 64,
                     "required": false,
                     "array": true
+                },
+                {
+                    "key": "vnc_host",
+                    "type": "string",
+                    "size": 256,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "last_screenshot",
+                    "type": "string",
+                    "size": 64,
+                    "required": false,
+                    "array": false,
+                    "default": null
                 }
             ],
             "indexes": [
@@ -464,7 +480,7 @@
             "enabled": true,
             "fileSecurity": false,
             "$permissions": [
-                "read(\"users\")",
+                "read(\"any\")",
                 "create(\"users\")",
                 "update(\"users\")",
                 "delete(\"users\")"

@@ -4,9 +4,12 @@ import mqtt, { type MqttClient } from "mqtt";
 import {
   HEARTBEAT_INTERVAL_MS,
   topics,
+  type CommandMessage,
   type Heartbeat,
   type MessageCommand,
 } from "@conduit/types";
+
+const COMMAND_ACTIONS = new Set(["reload", "update", "reboot", "screenshot"]);
 
 const PLAYER_VERSION = process.env.NEXT_PUBLIC_PLAYER_VERSION ?? "0.0.0";
 
@@ -70,6 +73,26 @@ export function createMessageSubscription(
       }
     },
   };
+}
+
+/** Subscribe to this screen's command topic (and broadcast) for control commands. */
+export function subscribeCommands(
+  client: MqttClient,
+  screenId: string,
+  onCommand: (cmd: CommandMessage) => void,
+): void {
+  const subs = [topics.command(screenId), topics.broadcast()];
+  const set = new Set(subs);
+  subs.forEach((t) => client.subscribe(t, { qos: 1 }));
+  client.on("message", (t, buf) => {
+    if (!set.has(t)) return;
+    try {
+      const cmd = JSON.parse(buf.toString()) as CommandMessage;
+      if (cmd && COMMAND_ACTIONS.has(cmd.action)) onCommand(cmd);
+    } catch {
+      /* ignore non-command payloads (e.g. broadcast messages) */
+    }
+  });
 }
 
 /** Convenience: the base message topics every screen listens to. */

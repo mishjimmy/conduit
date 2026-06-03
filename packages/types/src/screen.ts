@@ -17,6 +17,8 @@ export const screenSchema = z.object({
   last_seen: z.string().nullable().default(null),
   player_version: z.string().nullable().default(null),
   group_ids: z.array(z.string()).default([]),
+  vnc_host: z.string().nullable().default(null),
+  last_screenshot: z.string().nullable().default(null),
 });
 export type Screen = z.infer<typeof screenSchema>;
 

@@ -18,6 +18,11 @@ export const HEARTBEAT_WILDCARD = "screens/+/heartbeat";
 
 export type PlayerCommand = "reload" | "update" | "reboot" | "screenshot";
 
+/** Payload published over MQTT to a screen's command topic (or broadcast). */
+export interface CommandMessage {
+  action: PlayerCommand;
+}
+
 /** Appwrite Realtime channel for a single screen document (CMS browser use). */
 export const screenDocChannel = (screenId: string) =>
   `databases.${DATABASE_ID}.collections.${COLLECTIONS.screens}.documents.${screenId}`;

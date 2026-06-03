@@ -10,6 +10,7 @@ import {
   createMessageSubscription,
   groupMessageTopics,
   startHeartbeat,
+  subscribeCommands,
   subscribeState,
   type MessageSubscription,
 } from "@/lib/mqtt";
@@ -85,6 +86,14 @@ export default function PlayerPage() {
       const msgSub = createMessageSubscription(client, handleMessage);
       msgSub.add(baseMessageTopics(screenId));
       msgSubRef.current = msgSub;
+
+      subscribeCommands(client, screenId, (cmd) => {
+        // The browser handles reload/update (fetch the new bundle); reboot and
+        // screenshot are handled by the device-side listener (M9 image).
+        if (cmd.action === "reload" || cmd.action === "update") {
+          window.location.reload();
+        }
+      });
 
       stopHeartbeatRef.current = startHeartbeat(client, screenId, () => currentLayoutIdRef.current);
 

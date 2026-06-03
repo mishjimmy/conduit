@@ -105,7 +105,9 @@ export default function ScreensPage() {
             <Card key={s.$id}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>{s.name ?? s.$id}</span>
+                  <Link className="hover:underline" href={`/screens/${s.$id}`}>
+                    {s.name ?? s.$id}
+                  </Link>
                   <span className={`text-xs ${isOnline(s.last_seen) ? "text-green-600" : "text-muted-foreground"}`}>
                     {isOnline(s.last_seen) ? "● online" : "○ offline"}
                   </span>
