@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Hls from "hls.js";
 import type { Layer, MessageStyle } from "@conduit/types";
 import { passthroughMediaResolver, type MediaResolver } from "./media";
 
@@ -217,7 +218,36 @@ function MessageLayer({ message }: { message?: ActiveMessage | null }) {
   );
 }
 
-/* ---------------- video placeholders (server compositing arrives M7) -------- */
+/* ---------------- video (HLS via hls.js) ---------------- */
+
+function VideoLayer({ url, label }: { url: string; label: string }) {
+  const ref = React.useRef<HTMLVideoElement>(null);
+
+  React.useEffect(() => {
+    const video = ref.current;
+    if (!video || !url) return;
+    let hls: Hls | null = null;
+
+    // Safari/iOS play HLS natively; Chromium (the kiosk) needs hls.js.
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = url;
+    } else if (Hls.isSupported()) {
+      hls = new Hls({ liveDurationInfinity: true });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else {
+      video.src = url;
+    }
+
+    return () => {
+      hls?.destroy();
+      video.removeAttribute("src");
+    };
+  }, [url]);
+
+  if (!url) return <VideoPlaceholder label={label} />;
+  return <video ref={ref} autoPlay muted playsInline style={{ ...fill, objectFit: "cover" }} />;
+}
 
 function VideoPlaceholder({ label, url }: { label: string; url?: string }) {
   return (
@@ -273,11 +303,11 @@ export function LayerView({
     case "message":
       return <MessageLayer message={message} />;
     case "video":
-      return <VideoPlaceholder label="video" url={layer.hlsUrl} />;
+      return <VideoLayer url={layer.hlsUrl} label="video" />;
     case "camera-grid":
-      return <VideoPlaceholder label="camera grid" url={layer.hlsUrl} />;
+      return <VideoLayer url={layer.hlsUrl} label="camera grid" />;
     case "pip":
-      return <VideoPlaceholder label="picture-in-picture" url={layer.hlsUrl} />;
+      return <VideoLayer url={layer.hlsUrl} label="picture-in-picture" />;
     default:
       return null;
   }

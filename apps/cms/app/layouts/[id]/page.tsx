@@ -7,6 +7,7 @@ import { createLayer, LAYER_TYPES, type Layer, type LayerType } from "@conduit/t
 import { createBrowserClient } from "@/lib/appwrite-browser";
 import { getLayout, saveLayout } from "@/lib/layouts";
 import { listMedia, type MediaDoc } from "@/lib/media";
+import { listStreams, type StreamDoc } from "@/lib/streams";
 import { MediaPicker } from "@/app/components/MediaPicker";
 
 const inputCls = "w-full rounded-md border border-input bg-background px-2 py-1 text-sm";
@@ -20,6 +21,7 @@ export default function LayoutBuilderPage() {
   const [name, setName] = useState("");
   const [layers, setLayers] = useState<Layer[]>([]);
   const [media, setMedia] = useState<MediaDoc[]>([]);
+  const [streams, setStreams] = useState<StreamDoc[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "saving" | "saved">("loading");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -30,10 +32,15 @@ export default function LayoutBuilderPage() {
     account
       .get()
       .then(async () => {
-        const [layout, mediaList] = await Promise.all([getLayout(id), listMedia()]);
+        const [layout, mediaList, streamList] = await Promise.all([
+          getLayout(id),
+          listMedia(),
+          listStreams(),
+        ]);
         setName(layout.name);
         setLayers(layout.layers);
         setMedia(mediaList);
+        setStreams(streamList);
         setSelectedId(layout.layers[0]?.id ?? null);
         setStatus("ready");
       })
@@ -162,6 +169,7 @@ export default function LayoutBuilderPage() {
               onPatchPos={(axis, v) => patchPosition(selected.id, axis, v)}
               onRemove={() => removeLayer(selected.id)}
               openPicker={openPicker}
+              streams={streams}
             />
           )}
         </aside>
@@ -190,12 +198,14 @@ function LayerFields({
   onPatchPos,
   onRemove,
   openPicker,
+  streams,
 }: {
   layer: Layer;
   onPatch: (patch: Record<string, unknown>) => void;
   onPatchPos: (axis: "x" | "y" | "width" | "height", value: number) => void;
   onRemove: () => void;
   openPicker: OpenPicker;
+  streams: StreamDoc[];
 }) {
   const num = (v: string) => Math.max(0, Math.min(100, Number(v) || 0));
 
@@ -231,7 +241,7 @@ function LayerFields({
         </label>
       </div>
 
-      <TypeFields layer={layer} onPatch={onPatch} openPicker={openPicker} />
+      <TypeFields layer={layer} onPatch={onPatch} openPicker={openPicker} streams={streams} />
     </div>
   );
 }
@@ -240,10 +250,12 @@ function TypeFields({
   layer,
   onPatch,
   openPicker,
+  streams,
 }: {
   layer: Layer;
   onPatch: (patch: Record<string, unknown>) => void;
   openPicker: OpenPicker;
+  streams: StreamDoc[];
 }) {
   switch (layer.type) {
     case "clock":
@@ -307,10 +319,31 @@ function TypeFields({
     case "camera-grid":
     case "pip":
       return (
-        <label className="block">
-          <span className={labelCls}>HLS URL (server compositing in M7)</span>
-          <input className={inputCls} value={layer.hlsUrl} placeholder="https://…/stream.m3u8" onChange={(e) => onPatch({ hlsUrl: e.target.value })} />
-        </label>
+        <div className="space-y-1">
+          <span className={labelCls}>Stream</span>
+          <select
+            className={inputCls}
+            value={streams.find((s) => s.hlsUrl === layer.hlsUrl)?.id ?? ""}
+            onChange={(e) => {
+              const stream = streams.find((s) => s.id === e.target.value);
+              onPatch(stream ? { hlsUrl: stream.hlsUrl, streamId: stream.id } : { hlsUrl: "" });
+            }}
+          >
+            <option value="">— pick a stream —</option>
+            {streams.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.type})
+              </option>
+            ))}
+          </select>
+          <span className={labelCls}>or HLS URL</span>
+          <input
+            className={inputCls}
+            value={layer.hlsUrl}
+            placeholder="https://…/stream.m3u8"
+            onChange={(e) => onPatch({ hlsUrl: e.target.value })}
+          />
+        </div>
       );
     case "slideshow":
       return <SlideshowFields layer={layer} onPatch={onPatch} openPicker={openPicker} />;

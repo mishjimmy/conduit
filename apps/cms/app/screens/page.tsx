@@ -83,6 +83,9 @@ export default function ScreensPage() {
           <Link className="text-sm text-primary underline" href="/media">
             Media
           </Link>
+          <Link className="text-sm text-primary underline" href="/streams">
+            Streams
+          </Link>
           <Link className="text-sm text-primary underline" href="/messages">
             Messages
           </Link>
