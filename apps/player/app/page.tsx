@@ -4,9 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MqttClient } from "mqtt";
 import { POLL_INTERVAL_MS, type ScreenInitResult } from "@conduit/types";
 import type { MediaResolver } from "@conduit/ui";
-import { connectMqtt, startHeartbeat, subscribeState } from "@/lib/mqtt";
+import {
+  baseMessageTopics,
+  connectMqtt,
+  createMessageSubscription,
+  groupMessageTopics,
+  startHeartbeat,
+  subscribeState,
+  type MessageSubscription,
+} from "@/lib/mqtt";
 import { readManifest, writeManifest } from "@/lib/cache";
 import { prefetchMedia } from "@/lib/mediaCache";
+import { useMessageController } from "@/lib/messages";
 import type { PlayerManifest } from "@/lib/manifest";
 import { PairingScreen } from "./pairing/PairingScreen";
 import { PlaylistScreen } from "./display/PlaylistScreen";
@@ -25,10 +34,12 @@ export default function PlayerPage() {
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
 
   const mqttRef = useRef<MqttClient | null>(null);
+  const msgSubRef = useRef<MessageSubscription | null>(null);
   const stopHeartbeatRef = useRef<(() => void) | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentLayoutIdRef = useRef<string | null>(null);
   const attachedRef = useRef(false);
+  const { active: activeMessage, handle: handleMessage } = useMessageController();
 
   const onLayoutChange = useCallback((id: string | null) => {
     currentLayoutIdRef.current = id;
@@ -46,6 +57,7 @@ export default function PlayerPage() {
         if (cancelled) return;
         writeManifest(manifest);
         setView({ kind: "assigned", manifest });
+        msgSubRef.current?.add(groupMessageTopics(manifest.groupIds ?? []));
         // Warm the offline media cache, then expose object URLs to the renderer.
         const items = Object.entries(manifest.media ?? {}).map(([mediaId, m]) => ({ mediaId, url: m.url }));
         prefetchMedia(items).then((urls) => !cancelled && setMediaUrls(urls));
@@ -70,6 +82,10 @@ export default function PlayerPage() {
         if (p.status === "active") void loadManifest(screenId);
       });
 
+      const msgSub = createMessageSubscription(client, handleMessage);
+      msgSub.add(baseMessageTopics(screenId));
+      msgSubRef.current = msgSub;
+
       stopHeartbeatRef.current = startHeartbeat(client, screenId, () => currentLayoutIdRef.current);
 
       pollRef.current = setInterval(async () => {
@@ -92,6 +108,7 @@ export default function PlayerPage() {
         const items = Object.entries(cached.media ?? {}).map(([mediaId, m]) => ({ mediaId, url: m.url }));
         prefetchMedia(items).then((urls) => !cancelled && setMediaUrls(urls));
         attach(cached.screenId);
+        msgSubRef.current?.add(groupMessageTopics(cached.groupIds ?? []));
         void loadManifest(cached.screenId);
         return;
       }
@@ -156,6 +173,7 @@ export default function PlayerPage() {
       online={online}
       onLayoutChange={onLayoutChange}
       resolveMediaUrl={resolveMediaUrl}
+      message={activeMessage}
     />
   );
 }

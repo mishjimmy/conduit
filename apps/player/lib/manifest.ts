@@ -10,6 +10,7 @@ export interface PlayerManifest {
   screenId: string;
   name: string | null;
   location: string | null;
+  groupIds: string[];
   playlist: { id: string; entries: PlaylistEntry[]; loop: boolean } | null;
   layouts: Record<string, { name: string; layers: Layer[] }>;
   /** Resolved media referenced by the layouts, keyed by the layer's mediaId. */

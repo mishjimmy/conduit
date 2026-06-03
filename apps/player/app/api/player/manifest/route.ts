@@ -34,7 +34,13 @@ export async function GET(req: Request) {
 
   const { databases } = createAdminClient();
 
-  let screen: { $id: string; name: string | null; location: string | null; playlist_id: string | null };
+  let screen: {
+    $id: string;
+    name: string | null;
+    location: string | null;
+    playlist_id: string | null;
+    group_ids: string[] | null;
+  };
   try {
     screen = (await databases.getDocument(DATABASE_ID, COLLECTIONS.screens, screenId)) as never;
   } catch (err) {
@@ -48,6 +54,7 @@ export async function GET(req: Request) {
     screenId: screen.$id,
     name: screen.name,
     location: screen.location,
+    groupIds: screen.group_ids ?? [],
     playlist: null,
     layouts: {},
     media: {},

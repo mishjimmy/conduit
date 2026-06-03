@@ -1,7 +1,12 @@
 "use client";
 
 import mqtt, { type MqttClient } from "mqtt";
-import { HEARTBEAT_INTERVAL_MS, topics, type Heartbeat } from "@conduit/types";
+import {
+  HEARTBEAT_INTERVAL_MS,
+  topics,
+  type Heartbeat,
+  type MessageCommand,
+} from "@conduit/types";
 
 const PLAYER_VERSION = process.env.NEXT_PUBLIC_PLAYER_VERSION ?? "0.0.0";
 
@@ -30,6 +35,51 @@ export function subscribeState(
       /* ignore malformed payloads */
     }
   });
+}
+
+export interface MessageSubscription {
+  /** Subscribe to additional message topics (idempotent). */
+  add: (topicList: string[]) => void;
+}
+
+/**
+ * Installs a single message handler and lets the caller grow the set of
+ * subscribed message topics over time (e.g. group topics once the manifest with
+ * group memberships arrives).
+ */
+export function createMessageSubscription(
+  client: MqttClient,
+  onMessage: (cmd: MessageCommand) => void,
+): MessageSubscription {
+  const subscribed = new Set<string>();
+  client.on("message", (t, buf) => {
+    if (!subscribed.has(t)) return;
+    try {
+      onMessage(JSON.parse(buf.toString()) as MessageCommand);
+    } catch {
+      /* ignore malformed payloads */
+    }
+  });
+  return {
+    add(topicList) {
+      for (const t of topicList) {
+        if (!subscribed.has(t)) {
+          subscribed.add(t);
+          client.subscribe(t, { qos: 1 });
+        }
+      }
+    },
+  };
+}
+
+/** Convenience: the base message topics every screen listens to. */
+export function baseMessageTopics(screenId: string): string[] {
+  return [topics.message(screenId), topics.broadcast()];
+}
+
+/** Group message topics for a screen's group memberships. */
+export function groupMessageTopics(groupIds: string[]): string[] {
+  return groupIds.map((g) => topics.groupMessage(g));
 }
 
 /** Begin publishing heartbeats every 30s. Returns a stop function. */

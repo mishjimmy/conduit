@@ -2,12 +2,14 @@
 
 import * as React from "react";
 import type { Layer } from "@conduit/types";
-import { LayerView } from "./layers";
+import { LayerView, type ActiveMessage } from "./layers";
 import type { MediaResolver } from "./media";
 
 export interface LayoutRendererProps {
   layers: Layer[];
   resolveMediaUrl?: MediaResolver;
+  /** Active message rendered on message-type layers (null when idle). */
+  message?: ActiveMessage | null;
   /** Draw a dashed outline + label around each zone (builder aid). */
   showZoneOutlines?: boolean;
 }
@@ -19,7 +21,12 @@ export interface LayoutRendererProps {
  * The stage fills its parent — give the parent a 16:9 box (or a fullscreen
  * element on the player).
  */
-export function LayoutRenderer({ layers, resolveMediaUrl, showZoneOutlines }: LayoutRendererProps) {
+export function LayoutRenderer({
+  layers,
+  resolveMediaUrl,
+  message,
+  showZoneOutlines,
+}: LayoutRendererProps) {
   const ordered = React.useMemo(
     () => [...layers].sort((a, b) => a.zIndex - b.zIndex),
     [layers],
@@ -49,7 +56,7 @@ export function LayoutRenderer({ layers, resolveMediaUrl, showZoneOutlines }: La
             outline: showZoneOutlines ? "1px dashed rgba(255,255,255,0.4)" : undefined,
           }}
         >
-          <LayerView layer={layer} resolveMediaUrl={resolveMediaUrl} />
+          <LayerView layer={layer} resolveMediaUrl={resolveMediaUrl} message={message} />
           {showZoneOutlines && (
             <span
               style={{

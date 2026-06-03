@@ -1,8 +1,20 @@
 "use client";
 
 import * as React from "react";
-import type { Layer } from "@conduit/types";
+import type { Layer, MessageStyle } from "@conduit/types";
 import { passthroughMediaResolver, type MediaResolver } from "./media";
+
+/** A message to display on the message layer (null when idle). */
+export interface ActiveMessage {
+  body: string;
+  style: MessageStyle;
+}
+
+const MESSAGE_BG: Record<MessageStyle, string> = {
+  info: "rgba(37, 99, 235, 0.92)",
+  alert: "rgba(217, 119, 6, 0.94)",
+  emergency: "rgba(220, 38, 38, 0.96)",
+};
 
 const fill: React.CSSProperties = { width: "100%", height: "100%" };
 const center: React.CSSProperties = {
@@ -182,9 +194,27 @@ function EmbedLayer({ layer }: { layer: Extract<Layer, { type: "embed" }> }) {
   return <iframe src={layer.url} style={{ ...fill, border: "none" }} />;
 }
 
-/** The message zone is empty when idle; the messages system (M5) fills it. */
-function MessageLayer() {
-  return null;
+/** The message zone is empty when idle; the messages system fills it. */
+function MessageLayer({ message }: { message?: ActiveMessage | null }) {
+  if (!message) return null;
+  return (
+    <div
+      style={{
+        ...fill,
+        ...center,
+        padding: "2cqh 3cqw",
+        color: "#fff",
+        fontWeight: 600,
+        fontSize: "5cqh",
+        lineHeight: 1.2,
+        background: MESSAGE_BG[message.style],
+        borderRadius: "1.5cqh",
+        animation: "conduit-msg-in 400ms ease-out",
+      }}
+    >
+      {message.body}
+    </div>
+  );
 }
 
 /* ---------------- video placeholders (server compositing arrives M7) -------- */
@@ -222,9 +252,11 @@ function PlaceholderBox({ label }: { label: string }) {
 export function LayerView({
   layer,
   resolveMediaUrl,
+  message,
 }: {
   layer: Layer;
   resolveMediaUrl?: MediaResolver;
+  message?: ActiveMessage | null;
 }) {
   const resolve = resolveMediaUrl ?? passthroughMediaResolver;
   switch (layer.type) {
@@ -239,7 +271,7 @@ export function LayerView({
     case "embed":
       return <EmbedLayer layer={layer} />;
     case "message":
-      return <MessageLayer />;
+      return <MessageLayer message={message} />;
     case "video":
       return <VideoPlaceholder label="video" url={layer.hlsUrl} />;
     case "camera-grid":
