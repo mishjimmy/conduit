@@ -1,8 +1,28 @@
 import { NextResponse } from "next/server";
 import { AppwriteException } from "node-appwrite";
-import { COLLECTIONS, DATABASE_ID, parseEntries, parseLayers, type PlaylistEntry } from "@conduit/types";
+import {
+  BUCKETS,
+  COLLECTIONS,
+  DATABASE_ID,
+  parseEntries,
+  parseLayers,
+  type Layer,
+  type PlaylistEntry,
+} from "@conduit/types";
 import { createAdminClient } from "@/lib/appwrite-server";
 import type { PlayerManifest } from "@/lib/manifest";
+
+const isUrl = (s: string) => /^(https?:)?\/\//.test(s) || s.startsWith("/");
+
+/** Collect the (non-URL) media doc ids referenced by a set of layers. */
+function mediaIdsFromLayers(layers: Layer[]): string[] {
+  const ids: string[] = [];
+  for (const layer of layers) {
+    if (layer.type === "graphic" && layer.mediaId) ids.push(layer.mediaId);
+    if (layer.type === "slideshow") ids.push(...layer.items.map((i) => i.mediaId));
+  }
+  return ids.filter((id) => id && !isUrl(id));
+}
 
 /**
  * Everything the player needs to run its assigned playlist locally and offline:
@@ -30,6 +50,7 @@ export async function GET(req: Request) {
     location: screen.location,
     playlist: null,
     layouts: {},
+    media: {},
   };
 
   if (!screen.playlist_id) return NextResponse.json(manifest);
@@ -62,6 +83,29 @@ export async function GET(req: Request) {
           layers: string;
         };
         manifest.layouts[lid] = { name: doc.name, layers: parseLayers(doc.layers) };
+      } catch (err) {
+        if (!(err instanceof AppwriteException && err.code === 404)) throw err;
+      }
+    }),
+  );
+
+  // Resolve referenced media to public storage URLs (the media bucket is read("any")).
+  const endpoint = process.env.APPWRITE_ENDPOINT!;
+  const project = process.env.APPWRITE_PROJECT_ID!;
+  const mediaIds = [
+    ...new Set(Object.values(manifest.layouts).flatMap((l) => mediaIdsFromLayers(l.layers))),
+  ];
+  await Promise.all(
+    mediaIds.map(async (mid) => {
+      try {
+        const doc = (await databases.getDocument(DATABASE_ID, COLLECTIONS.media, mid)) as never as {
+          appwrite_file_id: string;
+          type: "image" | "video";
+        };
+        manifest.media[mid] = {
+          url: `${endpoint}/storage/buckets/${BUCKETS.media}/files/${doc.appwrite_file_id}/view?project=${project}`,
+          type: doc.type,
+        };
       } catch (err) {
         if (!(err instanceof AppwriteException && err.code === 404)) throw err;
       }

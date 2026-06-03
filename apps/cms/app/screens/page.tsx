@@ -77,6 +77,9 @@ export default function ScreensPage() {
           <Link className="text-sm text-primary underline" href="/playlists">
             Playlists
           </Link>
+          <Link className="text-sm text-primary underline" href="/media">
+            Media
+          </Link>
           <Link className="text-sm text-primary underline" href="/pair">
             Pair a screen
           </Link>

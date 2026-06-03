@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { LayoutRenderer } from "@conduit/ui";
+import { LayoutRenderer, type MediaResolver } from "@conduit/ui";
 import type { PlayerManifest } from "@/lib/manifest";
 import { usePlaylistRunner, type SlotView } from "@/lib/playlist";
 
@@ -9,10 +9,12 @@ export function PlaylistScreen({
   manifest,
   online,
   onLayoutChange,
+  resolveMediaUrl,
 }: {
   manifest: PlayerManifest;
   online: boolean;
   onLayoutChange?: (layoutId: string | null) => void;
+  resolveMediaUrl?: MediaResolver;
 }) {
   const { slots, currentLayoutId } = usePlaylistRunner(manifest);
 
@@ -25,7 +27,9 @@ export function PlaylistScreen({
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
       {hasPlaylist ? (
-        slots.map((slot, i) => <Slot key={i} slot={slot} manifest={manifest} />)
+        slots.map((slot, i) => (
+          <Slot key={i} slot={slot} manifest={manifest} resolveMediaUrl={resolveMediaUrl} />
+        ))
       ) : (
         <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white">
           <p className="text-sm uppercase tracking-widest text-white/50">Conduit · paired</p>
@@ -45,7 +49,15 @@ export function PlaylistScreen({
   );
 }
 
-function Slot({ slot, manifest }: { slot: SlotView; manifest: PlayerManifest }) {
+function Slot({
+  slot,
+  manifest,
+  resolveMediaUrl,
+}: {
+  slot: SlotView;
+  manifest: PlayerManifest;
+  resolveMediaUrl?: MediaResolver;
+}) {
   const layers = slot.layoutId ? (manifest.layouts[slot.layoutId]?.layers ?? []) : [];
   return (
     <div
@@ -56,7 +68,7 @@ function Slot({ slot, manifest }: { slot: SlotView; manifest: PlayerManifest }) 
         transition: `opacity ${slot.transMs}ms ease-in-out`,
       }}
     >
-      {slot.layoutId && <LayoutRenderer layers={layers} />}
+      {slot.layoutId && <LayoutRenderer layers={layers} resolveMediaUrl={resolveMediaUrl} />}
     </div>
   );
 }

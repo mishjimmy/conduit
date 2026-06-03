@@ -3,11 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MqttClient } from "mqtt";
 import { POLL_INTERVAL_MS, type ScreenInitResult } from "@conduit/types";
+import type { MediaResolver } from "@conduit/ui";
 import { connectMqtt, startHeartbeat, subscribeState } from "@/lib/mqtt";
 import { readManifest, writeManifest } from "@/lib/cache";
+import { prefetchMedia } from "@/lib/mediaCache";
 import type { PlayerManifest } from "@/lib/manifest";
 import { PairingScreen } from "./pairing/PairingScreen";
 import { PlaylistScreen } from "./display/PlaylistScreen";
+
+const isUrl = (s: string) => /^(https?:)?\/\//.test(s) || s.startsWith("/");
 
 type View =
   | { kind: "loading" }
@@ -18,6 +22,7 @@ type View =
 export default function PlayerPage() {
   const [view, setView] = useState<View>({ kind: "loading" });
   const [online, setOnline] = useState(true);
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
 
   const mqttRef = useRef<MqttClient | null>(null);
   const stopHeartbeatRef = useRef<(() => void) | null>(null);
@@ -41,6 +46,9 @@ export default function PlayerPage() {
         if (cancelled) return;
         writeManifest(manifest);
         setView({ kind: "assigned", manifest });
+        // Warm the offline media cache, then expose object URLs to the renderer.
+        const items = Object.entries(manifest.media ?? {}).map(([mediaId, m]) => ({ mediaId, url: m.url }));
+        prefetchMedia(items).then((urls) => !cancelled && setMediaUrls(urls));
       } catch {
         /* offline — keep whatever is already showing (cache) */
       }
@@ -81,6 +89,8 @@ export default function PlayerPage() {
       const cached = readManifest();
       if (cached) {
         setView({ kind: "assigned", manifest: cached });
+        const items = Object.entries(cached.media ?? {}).map(([mediaId, m]) => ({ mediaId, url: m.url }));
+        prefetchMedia(items).then((urls) => !cancelled && setMediaUrls(urls));
         attach(cached.screenId);
         void loadManifest(cached.screenId);
         return;
@@ -135,5 +145,17 @@ export default function PlayerPage() {
   if (view.kind === "pairing") {
     return <PairingScreen code={view.code} online={online} />;
   }
-  return <PlaylistScreen manifest={view.manifest} online={online} onLayoutChange={onLayoutChange} />;
+
+  const manifest = view.manifest;
+  const resolveMediaUrl: MediaResolver = (mediaId) =>
+    mediaUrls[mediaId] ?? manifest.media?.[mediaId]?.url ?? (isUrl(mediaId) ? mediaId : undefined);
+
+  return (
+    <PlaylistScreen
+      manifest={manifest}
+      online={online}
+      onLayoutChange={onLayoutChange}
+      resolveMediaUrl={resolveMediaUrl}
+    />
+  );
 }

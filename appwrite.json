@@ -447,7 +447,7 @@
             "enabled": true,
             "fileSecurity": false,
             "$permissions": [
-                "read(\"users\")",
+                "read(\"any\")",
                 "create(\"users\")",
                 "update(\"users\")",
                 "delete(\"users\")"

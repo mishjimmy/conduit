@@ -1,41 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button, LayoutRenderer } from "@conduit/ui";
-import {
-  createLayer,
-  LAYER_TYPES,
-  type Layer,
-  type LayerType,
-} from "@conduit/types";
+import { Button, LayoutRenderer, type MediaResolver } from "@conduit/ui";
+import { createLayer, LAYER_TYPES, type Layer, type LayerType } from "@conduit/types";
 import { createBrowserClient } from "@/lib/appwrite-browser";
 import { getLayout, saveLayout } from "@/lib/layouts";
+import { listMedia, type MediaDoc } from "@/lib/media";
+import { MediaPicker } from "@/app/components/MediaPicker";
 
 const inputCls = "w-full rounded-md border border-input bg-background px-2 py-1 text-sm";
 const labelCls = "text-xs text-muted-foreground";
+
+type OpenPicker = (apply: (mediaId: string) => void) => void;
 
 export default function LayoutBuilderPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [name, setName] = useState("");
   const [layers, setLayers] = useState<Layer[]>([]);
+  const [media, setMedia] = useState<MediaDoc[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "saving" | "saved">("loading");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pendingApply = useRef<((mediaId: string) => void) | null>(null);
 
   useEffect(() => {
     const { account } = createBrowserClient();
     account
       .get()
       .then(async () => {
-        const layout = await getLayout(id);
+        const [layout, mediaList] = await Promise.all([getLayout(id), listMedia()]);
         setName(layout.name);
         setLayers(layout.layers);
+        setMedia(mediaList);
         setSelectedId(layout.layers[0]?.id ?? null);
         setStatus("ready");
       })
       .catch(() => router.push("/login"));
   }, [id, router]);
+
+  const resolveMediaUrl: MediaResolver = useMemo(() => {
+    const map = new Map(media.map((m) => [m.id, m.url]));
+    return (mediaId) =>
+      map.get(mediaId) ?? (/^(https?:)?\/\//.test(mediaId) || mediaId.startsWith("/") ? mediaId : undefined);
+  }, [media]);
+
+  const openPicker: OpenPicker = (apply) => {
+    pendingApply.current = apply;
+    setPickerOpen(true);
+  };
 
   const selected = layers.find((l) => l.id === selectedId) ?? null;
 
@@ -43,7 +57,6 @@ export default function LayoutBuilderPage() {
     setLayers((ls) => ls.map((l) => (l.id === layerId ? ({ ...l, ...patch } as Layer) : l)));
     setStatus("ready");
   }
-
   function patchPosition(layerId: string, axis: "x" | "y" | "width" | "height", value: number) {
     setLayers((ls) =>
       ls.map((l) =>
@@ -52,7 +65,6 @@ export default function LayoutBuilderPage() {
     );
     setStatus("ready");
   }
-
   function addLayer(type: LayerType) {
     const nextZ = layers.reduce((max, l) => Math.max(max, l.zIndex), 0) + 1;
     const layer = createLayer(type, nextZ);
@@ -60,13 +72,11 @@ export default function LayoutBuilderPage() {
     setSelectedId(layer.id);
     setStatus("ready");
   }
-
   function removeLayer(layerId: string) {
     setLayers((ls) => ls.filter((l) => l.id !== layerId));
     if (selectedId === layerId) setSelectedId(null);
     setStatus("ready");
   }
-
   async function save() {
     setStatus("saving");
     await saveLayout(id, name, layers);
@@ -79,7 +89,6 @@ export default function LayoutBuilderPage() {
 
   return (
     <main className="flex h-screen flex-col">
-      {/* top bar */}
       <header className="flex items-center gap-3 border-b border-border p-3">
         <button className="text-sm text-primary underline" onClick={() => router.push("/layouts")}>
           ← Layouts
@@ -108,7 +117,6 @@ export default function LayoutBuilderPage() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* left panel */}
         <aside className="w-80 shrink-0 overflow-y-auto border-r border-border p-3">
           <div className="mb-3">
             <label className={labelCls}>Add layer</label>
@@ -153,17 +161,23 @@ export default function LayoutBuilderPage() {
               onPatch={(p) => patchLayer(selected.id, p)}
               onPatchPos={(axis, v) => patchPosition(selected.id, axis, v)}
               onRemove={() => removeLayer(selected.id)}
+              openPicker={openPicker}
             />
           )}
         </aside>
 
-        {/* preview */}
         <section className="flex min-w-0 flex-1 items-center justify-center bg-neutral-900 p-6">
           <div className="aspect-video w-full max-w-5xl shadow-lg">
-            <LayoutRenderer layers={layers} showZoneOutlines />
+            <LayoutRenderer layers={layers} showZoneOutlines resolveMediaUrl={resolveMediaUrl} />
           </div>
         </section>
       </div>
+
+      <MediaPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(m) => pendingApply.current?.(m.id)}
+      />
     </main>
   );
 }
@@ -175,11 +189,13 @@ function LayerFields({
   onPatch,
   onPatchPos,
   onRemove,
+  openPicker,
 }: {
   layer: Layer;
   onPatch: (patch: Record<string, unknown>) => void;
   onPatchPos: (axis: "x" | "y" | "width" | "height", value: number) => void;
   onRemove: () => void;
+  openPicker: OpenPicker;
 }) {
   const num = (v: string) => Math.max(0, Math.min(100, Number(v) || 0));
 
@@ -192,7 +208,6 @@ function LayerFields({
         </button>
       </div>
 
-      {/* position */}
       <div className="grid grid-cols-2 gap-2">
         {(["x", "y", "width", "height"] as const).map((axis) => (
           <label key={axis} className="block">
@@ -216,7 +231,7 @@ function LayerFields({
         </label>
       </div>
 
-      <TypeFields layer={layer} onPatch={onPatch} />
+      <TypeFields layer={layer} onPatch={onPatch} openPicker={openPicker} />
     </div>
   );
 }
@@ -224,9 +239,11 @@ function LayerFields({
 function TypeFields({
   layer,
   onPatch,
+  openPicker,
 }: {
   layer: Layer;
   onPatch: (patch: Record<string, unknown>) => void;
+  openPicker: OpenPicker;
 }) {
   switch (layer.type) {
     case "clock":
@@ -234,21 +251,13 @@ function TypeFields({
         <div className="space-y-2">
           <label className="block">
             <span className={labelCls}>Format</span>
-            <select
-              className={inputCls}
-              value={layer.format}
-              onChange={(e) => onPatch({ format: e.target.value })}
-            >
+            <select className={inputCls} value={layer.format} onChange={(e) => onPatch({ format: e.target.value })}>
               <option value="24h">24h</option>
               <option value="12h">12h</option>
             </select>
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={layer.showDate}
-              onChange={(e) => onPatch({ showDate: e.target.checked })}
-            />
+            <input type="checkbox" checked={layer.showDate} onChange={(e) => onPatch({ showDate: e.target.checked })} />
             Show date
           </label>
         </div>
@@ -258,19 +267,11 @@ function TypeFields({
         <div className="space-y-2">
           <label className="block">
             <span className={labelCls}>Location</span>
-            <input
-              className={inputCls}
-              value={layer.location}
-              onChange={(e) => onPatch({ location: e.target.value })}
-            />
+            <input className={inputCls} value={layer.location} onChange={(e) => onPatch({ location: e.target.value })} />
           </label>
           <label className="block">
             <span className={labelCls}>Units</span>
-            <select
-              className={inputCls}
-              value={layer.units}
-              onChange={(e) => onPatch({ units: e.target.value })}
-            >
+            <select className={inputCls} value={layer.units} onChange={(e) => onPatch({ units: e.target.value })}>
               <option value="metric">metric (°C)</option>
               <option value="imperial">imperial (°F)</option>
             </select>
@@ -281,25 +282,26 @@ function TypeFields({
       return (
         <label className="block">
           <span className={labelCls}>URL</span>
-          <input
-            className={inputCls}
-            value={layer.url}
-            placeholder="https://…"
-            onChange={(e) => onPatch({ url: e.target.value })}
-          />
+          <input className={inputCls} value={layer.url} placeholder="https://…" onChange={(e) => onPatch({ url: e.target.value })} />
         </label>
       );
     case "graphic":
       return (
-        <label className="block">
-          <span className={labelCls}>Image URL (media library in M4)</span>
+        <div className="space-y-1">
+          <span className={labelCls}>Image</span>
           <input
             className={inputCls}
             value={layer.mediaId}
-            placeholder="https://…/logo.png"
+            placeholder="media id or URL"
             onChange={(e) => onPatch({ mediaId: e.target.value })}
           />
-        </label>
+          <button
+            className="text-xs text-primary underline"
+            onClick={() => openPicker((mediaId) => onPatch({ mediaId }))}
+          >
+            Pick from media…
+          </button>
+        </div>
       );
     case "video":
     case "camera-grid":
@@ -307,16 +309,11 @@ function TypeFields({
       return (
         <label className="block">
           <span className={labelCls}>HLS URL (server compositing in M7)</span>
-          <input
-            className={inputCls}
-            value={layer.hlsUrl}
-            placeholder="https://…/stream.m3u8"
-            onChange={(e) => onPatch({ hlsUrl: e.target.value })}
-          />
+          <input className={inputCls} value={layer.hlsUrl} placeholder="https://…/stream.m3u8" onChange={(e) => onPatch({ hlsUrl: e.target.value })} />
         </label>
       );
     case "slideshow":
-      return <SlideshowFields layer={layer} onPatch={onPatch} />;
+      return <SlideshowFields layer={layer} onPatch={onPatch} openPicker={openPicker} />;
     case "message":
       return <p className={labelCls}>Driven by the messages system (M5). Empty when idle.</p>;
     default:
@@ -327,9 +324,11 @@ function TypeFields({
 function SlideshowFields({
   layer,
   onPatch,
+  openPicker,
 }: {
   layer: Extract<Layer, { type: "slideshow" }>;
   onPatch: (patch: Record<string, unknown>) => void;
+  openPicker: OpenPicker;
 }) {
   const items = layer.items;
   const setItems = (next: typeof items) => onPatch({ items: next });
@@ -348,32 +347,37 @@ function SlideshowFields({
       </label>
       <div className="space-y-2">
         {items.map((item, i) => (
-          <div key={i} className="flex gap-1">
-            <input
-              className={inputCls}
-              placeholder="image/video URL"
-              value={item.mediaId}
-              onChange={(e) =>
-                setItems(items.map((it, j) => (j === i ? { ...it, mediaId: e.target.value } : it)))
-              }
-            />
-            <input
-              type="number"
-              className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm"
-              value={item.durationSeconds}
-              onChange={(e) =>
-                setItems(
-                  items.map((it, j) =>
-                    j === i ? { ...it, durationSeconds: Math.max(1, Number(e.target.value) || 1) } : it,
-                  ),
-                )
-              }
-            />
+          <div key={i} className="space-y-1 rounded-md border border-border p-1">
+            <div className="flex gap-1">
+              <input
+                className={inputCls}
+                placeholder="media id or URL"
+                value={item.mediaId}
+                onChange={(e) =>
+                  setItems(items.map((it, j) => (j === i ? { ...it, mediaId: e.target.value } : it)))
+                }
+              />
+              <input
+                type="number"
+                className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                value={item.durationSeconds}
+                onChange={(e) =>
+                  setItems(
+                    items.map((it, j) =>
+                      j === i ? { ...it, durationSeconds: Math.max(1, Number(e.target.value) || 1) } : it,
+                    ),
+                  )
+                }
+              />
+              <button className="px-1 text-destructive" onClick={() => setItems(items.filter((_, j) => j !== i))}>
+                ✕
+              </button>
+            </div>
             <button
-              className="px-1 text-destructive"
-              onClick={() => setItems(items.filter((_, j) => j !== i))}
+              className="text-xs text-primary underline"
+              onClick={() => openPicker((mediaId) => setItems(items.map((it, j) => (j === i ? { ...it, mediaId } : it))))}
             >
-              ✕
+              Pick from media…
             </button>
           </div>
         ))}
