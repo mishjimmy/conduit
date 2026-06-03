@@ -1,0 +1,13 @@
+[Unit]
+Description=Conduit Tailscale enrollment (zero-touch, baked pre-auth key)
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/conduit/conduit.conf
+ExecStart=/usr/bin/tailscale up --authkey=${TAILSCALE_AUTHKEY} --hostname=conduit-%H --ssh
+
+[Install]
+WantedBy=multi-user.target

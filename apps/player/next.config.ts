@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@conduit/ui", "@conduit/types"],
   turbopack: { root: workspaceRoot },
   outputFileTracingRoot: workspaceRoot,
+  output: "standalone",
 };
 
 export default nextConfig;

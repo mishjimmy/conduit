@@ -1,20 +1,28 @@
-# Caddy reverse proxy for Conduit, serving conduit.local over the internal CA.
-# NOTE (M9): path-based routing of the player under /player needs Next basePath
-# wiring so the player's /api routes resolve correctly. For now the CMS is at the
-# root and the player is reached on its own port/host in dev.
+# Caddy reverse proxy for Conduit, serving over the internal CA on conduit.local.
+#
+# The Pi kiosk loads https://player.conduit.local; operators use https://conduit.local.
+# (To serve the player under conduit.local/player instead, set basePath in the
+# player's next.config and make its client fetches basePath-aware.)
 
 {
-	# Internal CA: Caddy issues a cert for conduit.local from its local CA.
+	# Issue certs from Caddy's local internal CA. Trust this CA on every device:
+	# the CA root is baked into the Pi image and installed in operator browsers.
 	local_certs
 }
 
 conduit.local {
-	# CMS (management UI) at the root.
+	# CMS (management UI)
 	reverse_proxy cms:3000
 
-	# Appwrite API (same-origin so the browser session cookie powers Realtime).
+	# Appwrite API — proxy under the same origin so the browser session cookie
+	# powers Realtime. Point this at your Appwrite host.
 	handle_path /v1/* {
 		reverse_proxy appwrite:80
+	}
+
+	# go2rtc HLS (single-origin avoids cross-origin/CORS for the player)
+	handle_path /go2rtc/* {
+		reverse_proxy go2rtc:1984
 	}
 }
 

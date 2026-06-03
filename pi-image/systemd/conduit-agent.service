@@ -1,0 +1,13 @@
+[Unit]
+Description=Conduit device command agent (screenshot / reboot / update)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Environment=DISPLAY=:0
+ExecStart=/opt/conduit/conduit-agent.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

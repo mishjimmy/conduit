@@ -1,0 +1,16 @@
+# Conduit device configuration — installed to /etc/conduit/conduit.conf on the image.
+# Values can be overridden per-device by editing this file on the boot partition.
+
+# Where the player app and its API are served (Caddy / central server).
+CONDUIT_PLAYER_URL="https://player.conduit.local"
+CONDUIT_BASE_URL="https://conduit.local"
+
+# MQTT broker the device agent subscribes to for commands.
+MQTT_HOST="conduit.local"
+MQTT_PORT="1883"
+
+# Tailscale pre-auth key, baked at image build for zero-touch tailnet enrollment.
+TAILSCALE_AUTHKEY=""
+
+# Chromium binary name (chromium-browser on Raspberry Pi OS, chromium elsewhere).
+CHROMIUM_BIN="chromium-browser"

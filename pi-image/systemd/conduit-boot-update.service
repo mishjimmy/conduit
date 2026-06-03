@@ -1,0 +1,12 @@
+[Unit]
+Description=Conduit boot-time auto-update
+After=network-online.target
+Wants=network-online.target
+Before=conduit-kiosk.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/conduit/boot-update.sh
+
+[Install]
+WantedBy=multi-user.target

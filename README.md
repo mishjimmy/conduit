@@ -81,3 +81,32 @@ corepack pnpm -r typecheck
 corepack pnpm --filter @conduit/types test
 corepack pnpm build
 ```
+
+## Production deployment (Docker Compose)
+
+Everything except Appwrite runs from [infra/docker-compose.yml](infra/docker-compose.yml).
+Point `.env` at your Appwrite instance, then build + run from the repo root:
+
+```sh
+cd infra
+docker compose --env-file ../.env up -d --build
+```
+
+This brings up: **cms** + **player** (Next standalone images), **bridge**,
+**mosquitto**, **go2rtc**, and **caddy** (internal-CA TLS for `conduit.local` /
+`player.conduit.local`). `NEXT_PUBLIC_*` values are inlined at image build time —
+they're wired as Compose build args from the same `.env`.
+
+- **mDNS:** set the server hostname to `conduit` (Avahi then answers `conduit.local`)
+  and run [infra/mdns-aliases.sh](infra/mdns-aliases.sh) to also answer
+  `player.conduit.local`.
+- **TLS trust:** export Caddy's internal CA root (`/data/caddy/pki/authorities/local/root.crt`)
+  and trust it on operator machines + bake it into the Pi image.
+- **Remote access:** install Tailscale on the server and every Pi (mesh path for
+  per-device noVNC + management).
+
+## Device image (Raspberry Pi)
+
+Pi images are built with CustomPiOS — kiosk Chromium under a systemd watchdog,
+baked Tailscale pre-auth key + CA cert, boot-time auto-update, a noVNC remote
+screen, and an MQTT command agent. See [pi-image/README.md](pi-image/README.md).

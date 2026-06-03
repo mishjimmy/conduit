@@ -123,11 +123,16 @@ export default function PlayerPage() {
       }
 
       try {
-        const di = await fetch("/api/device-info").then((r) => r.json() as Promise<{ mac: string }>);
+        // The kiosk launches with the device's real MAC in the URL; fall back to
+        // the local device-info endpoint (dev mock) when it isn't supplied.
+        const macParam = new URLSearchParams(window.location.search).get("mac");
+        const mac =
+          macParam ??
+          (await fetch("/api/device-info").then((r) => r.json() as Promise<{ mac: string }>)).mac;
         const init = (await fetch("/api/screens/init", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ mac: di.mac }),
+          body: JSON.stringify({ mac }),
         }).then((r) => r.json())) as ScreenInitResult;
         if (cancelled) return;
 

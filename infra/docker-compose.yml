@@ -1,9 +1,12 @@
 # Conduit on-premises stack.
 #
-# M1 brings up the broker (and optionally go2rtc/caddy). Appwrite runs from its
-# own official compose and is joined via the shared `conduit` network. The CMS,
-# player, and bridge get Dockerfiles + service definitions in M9 — in dev they
-# run on the host via `pnpm dev` against this broker.
+# Appwrite runs from its own official compose; point the env at it. Everything
+# else (apps, bridge, broker, video, proxy) runs here. Build + run from the repo
+# root env file:
+#
+#   docker compose -f infra/docker-compose.yml --env-file ../.env up -d --build
+#
+# (run from the infra/ directory, or adjust the --env-file path accordingly)
 
 name: conduit
 
@@ -21,8 +24,7 @@ services:
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
-    networks:
-      - conduit
+    networks: [conduit]
 
   go2rtc:
     image: alexxit/go2rtc:latest
@@ -31,8 +33,51 @@ services:
       - "1984:1984" # API / HLS
     volumes:
       - ./go2rtc.yml:/config/go2rtc.yaml
-    networks:
-      - conduit
+    networks: [conduit]
+
+  cms:
+    build:
+      context: ..
+      dockerfile: apps/cms/Dockerfile
+      args:
+        NEXT_PUBLIC_APPWRITE_ENDPOINT: ${NEXT_PUBLIC_APPWRITE_ENDPOINT}
+        NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${NEXT_PUBLIC_APPWRITE_PROJECT_ID}
+        NEXT_PUBLIC_APPWRITE_DATABASE_ID: ${NEXT_PUBLIC_APPWRITE_DATABASE_ID}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+        NEXT_PUBLIC_GO2RTC_URL: ${NEXT_PUBLIC_GO2RTC_URL}
+        NEXT_PUBLIC_NOVNC_URL_TEMPLATE: ${NEXT_PUBLIC_NOVNC_URL_TEMPLATE}
+    restart: unless-stopped
+    env_file: ../.env
+    expose:
+      - "3000"
+    networks: [conduit]
+
+  player:
+    build:
+      context: ..
+      dockerfile: apps/player/Dockerfile
+      args:
+        NEXT_PUBLIC_APPWRITE_ENDPOINT: ${NEXT_PUBLIC_APPWRITE_ENDPOINT}
+        NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${NEXT_PUBLIC_APPWRITE_PROJECT_ID}
+        NEXT_PUBLIC_APPWRITE_DATABASE_ID: ${NEXT_PUBLIC_APPWRITE_DATABASE_ID}
+        NEXT_PUBLIC_MQTT_WS_URL: ${NEXT_PUBLIC_MQTT_WS_URL}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+        NEXT_PUBLIC_PLAYER_VERSION: ${NEXT_PUBLIC_PLAYER_VERSION}
+        NEXT_PUBLIC_OPENWEATHER_API_KEY: ${NEXT_PUBLIC_OPENWEATHER_API_KEY:-}
+    restart: unless-stopped
+    env_file: ../.env
+    expose:
+      - "3001"
+    networks: [conduit]
+
+  bridge:
+    build:
+      context: ..
+      dockerfile: services/bridge/Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on: [mosquitto]
+    networks: [conduit]
 
   caddy:
     image: caddy:2
@@ -44,29 +89,16 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    networks:
-      - conduit
+    depends_on: [cms, player]
+    networks: [conduit]
 
-  # mDNS: advertise conduit.local on the LAN. Easiest on the host network;
-  # on Linux run avahi-daemon on the host, or enable a container here:
+  # mDNS for conduit.local + player.conduit.local. Easiest on the host network;
+  # on Linux: `apt install avahi-daemon`, set hostname to `conduit`, and run
+  # infra/mdns-aliases.sh to publish player.conduit.local. To containerize:
   # avahi:
   #   image: flungo/avahi
   #   network_mode: host
   #   restart: unless-stopped
-
-  # --- Conduit apps (Dockerfiles land in M9) ---
-  # cms:
-  #   build: { context: .., dockerfile: apps/cms/Dockerfile }
-  #   env_file: ../.env
-  #   networks: [conduit]
-  # player:
-  #   build: { context: .., dockerfile: apps/player/Dockerfile }
-  #   env_file: ../.env
-  #   networks: [conduit]
-  # bridge:
-  #   build: { context: .., dockerfile: services/bridge/Dockerfile }
-  #   env_file: ../.env
-  #   networks: [conduit]
 
 volumes:
   mosquitto-data:

@@ -1,0 +1,14 @@
+[Unit]
+Description=Conduit noVNC remote screen
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+User=pi
+Environment=DISPLAY=:0
+ExecStart=/opt/conduit/novnc.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target
