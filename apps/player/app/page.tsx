@@ -1,55 +1,56 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MqttClient } from "mqtt";
 import { POLL_INTERVAL_MS, type ScreenInitResult } from "@conduit/types";
 import { connectMqtt, startHeartbeat, subscribeState } from "@/lib/mqtt";
-import { readManifest, writeManifest, type CachedManifest } from "@/lib/cache";
+import { readManifest, writeManifest } from "@/lib/cache";
+import type { PlayerManifest } from "@/lib/manifest";
 import { PairingScreen } from "./pairing/PairingScreen";
-import { DisplayScreen } from "./display/DisplayScreen";
+import { PlaylistScreen } from "./display/PlaylistScreen";
 
 type View =
   | { kind: "loading" }
   | { kind: "pairing"; screenId: string; code: string }
-  | { kind: "assigned"; manifest: CachedManifest }
+  | { kind: "assigned"; manifest: PlayerManifest }
   | { kind: "error"; message: string };
 
 export default function PlayerPage() {
   const [view, setView] = useState<View>({ kind: "loading" });
   const [online, setOnline] = useState(true);
 
-  // Long-lived handles cleaned up on unmount.
   const mqttRef = useRef<MqttClient | null>(null);
   const stopHeartbeatRef = useRef<(() => void) | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentLayoutIdRef = useRef<string | null>(null);
+  const attachedRef = useRef(false);
+
+  const onLayoutChange = useCallback((id: string | null) => {
+    currentLayoutIdRef.current = id;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    function manifestFrom(r: {
-      screenId: string;
-      status: ScreenInitResult["status"];
-      name?: string | null;
-      location?: string | null;
-      playlistId: string | null;
-    }): CachedManifest {
-      return {
-        screenId: r.screenId,
-        status: r.status,
-        name: r.name ?? null,
-        location: r.location ?? null,
-        playlistId: r.playlistId,
-        updatedAt: new Date().toISOString(),
-      };
-    }
-
-    function goAssigned(m: CachedManifest) {
-      writeManifest(m);
-      if (!cancelled) setView({ kind: "assigned", manifest: m });
+    // Fetch the latest manifest; cache it; show it. Falls back to cache offline.
+    async function loadManifest(screenId: string) {
+      try {
+        const res = await fetch(`/api/player/manifest?screenId=${encodeURIComponent(screenId)}`);
+        if (!res.ok) return;
+        const manifest = (await res.json()) as PlayerManifest;
+        if (cancelled) return;
+        writeManifest(manifest);
+        setView({ kind: "assigned", manifest });
+      } catch {
+        /* offline — keep whatever is already showing (cache) */
+      }
     }
 
     // Wire MQTT + heartbeat + polling fallback once we know our screenId.
     function attach(screenId: string) {
+      if (attachedRef.current) return;
+      attachedRef.current = true;
+
       const client = connectMqtt();
       mqttRef.current = client;
       client.on("connect", () => setOnline(true));
@@ -57,40 +58,31 @@ export default function PlayerPage() {
       client.on("error", () => setOnline(false));
 
       subscribeState(client, screenId, (payload) => {
-        const p = payload as { status?: string; name?: string | null; location?: string | null; playlistId?: string | null };
-        if (p.status === "active") {
-          goAssigned(manifestFrom({ screenId, status: "active", name: p.name, location: p.location, playlistId: p.playlistId ?? null }));
-        }
+        const p = payload as { status?: string };
+        if (p.status === "active") void loadManifest(screenId);
       });
 
-      stopHeartbeatRef.current = startHeartbeat(client, screenId, () => null);
+      stopHeartbeatRef.current = startHeartbeat(client, screenId, () => currentLayoutIdRef.current);
 
-      // Polling fallback (works even if MQTT never connects).
       pollRef.current = setInterval(async () => {
         try {
           const res = await fetch(`/api/screens/status?screenId=${encodeURIComponent(screenId)}`);
           if (!res.ok) return;
-          const data = (await res.json()) as {
-            status: ScreenInitResult["status"];
-            name: string | null;
-            location: string | null;
-            playlistId: string | null;
-          };
-          if (data.status === "active") {
-            goAssigned(manifestFrom({ screenId, ...data }));
-          }
+          const data = (await res.json()) as { status: ScreenInitResult["status"] };
+          if (data.status === "active") void loadManifest(screenId);
         } catch {
-          /* offline — keep current view */
+          /* offline */
         }
       }, POLL_INTERVAL_MS);
     }
 
     async function bootstrap() {
-      // Returning device: resume from cache, skip pairing.
+      // Returning device: resume from cached manifest immediately, then reconcile.
       const cached = readManifest();
-      if (cached && cached.status === "active") {
+      if (cached) {
         setView({ kind: "assigned", manifest: cached });
         attach(cached.screenId);
+        void loadManifest(cached.screenId);
         return;
       }
 
@@ -101,12 +93,11 @@ export default function PlayerPage() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ mac: di.mac }),
         }).then((r) => r.json())) as ScreenInitResult;
-
         if (cancelled) return;
 
         if (init.status === "active") {
-          goAssigned(manifestFrom(init));
           attach(init.screenId);
+          await loadManifest(init.screenId);
           return;
         }
 
@@ -144,5 +135,5 @@ export default function PlayerPage() {
   if (view.kind === "pairing") {
     return <PairingScreen code={view.code} online={online} />;
   }
-  return <DisplayScreen manifest={view.manifest} online={online} />;
+  return <PlaylistScreen manifest={view.manifest} online={online} onLayoutChange={onLayoutChange} />;
 }

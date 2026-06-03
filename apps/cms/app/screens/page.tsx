@@ -10,6 +10,7 @@ import {
   type Screen,
 } from "@conduit/types";
 import { createBrowserClient, PUBLIC_DATABASE_ID } from "@/lib/appwrite-browser";
+import { listPlaylists, type PlaylistDoc } from "@/lib/playlists";
 
 function statusColor(status: string) {
   if (status === "active") return "text-green-600";
@@ -25,6 +26,7 @@ function isOnline(lastSeen: string | null): boolean {
 export default function ScreensPage() {
   const router = useRouter();
   const [screens, setScreens] = useState<Screen[]>([]);
+  const [playlists, setPlaylists] = useState<PlaylistDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export default function ScreensPage() {
     account
       .get()
       .then(async () => {
-        await load();
+        await Promise.all([load(), listPlaylists().then(setPlaylists)]);
         unsub = client.subscribe(screensCollectionChannel, () => {
           void load();
         });
@@ -50,6 +52,20 @@ export default function ScreensPage() {
     return () => unsub?.();
   }, [router]);
 
+  async function assignPlaylist(screenId: string, playlistId: string) {
+    // optimistic update
+    setScreens((ss) =>
+      ss.map((s) => (s.$id === screenId ? { ...s, playlist_id: playlistId || null } : s)),
+    );
+    const { account } = createBrowserClient();
+    const jwt = await account.createJWT();
+    await fetch("/api/screens/assign", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${jwt.jwt}` },
+      body: JSON.stringify({ screenId, playlistId: playlistId || null }),
+    });
+  }
+
   return (
     <main className="mx-auto max-w-4xl p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -57,6 +73,9 @@ export default function ScreensPage() {
         <div className="flex items-center gap-4">
           <Link className="text-sm text-primary underline" href="/layouts">
             Layouts
+          </Link>
+          <Link className="text-sm text-primary underline" href="/playlists">
+            Playlists
           </Link>
           <Link className="text-sm text-primary underline" href="/pair">
             Pair a screen
@@ -89,6 +108,23 @@ export default function ScreensPage() {
                 <div>Location: {s.location ?? "—"}</div>
                 <div>MAC: {s.mac}</div>
                 <div>Version: {s.player_version ?? "—"}</div>
+                {s.status === "active" && (
+                  <label className="flex items-center gap-2 pt-1">
+                    <span className="text-xs text-muted-foreground">Playlist</span>
+                    <select
+                      className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      value={s.playlist_id ?? ""}
+                      onChange={(e) => void assignPlaylist(s.$id, e.target.value)}
+                    >
+                      <option value="">(none)</option>
+                      {playlists.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </CardContent>
             </Card>
           ))}

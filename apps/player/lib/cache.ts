@@ -1,31 +1,23 @@
-import type { ScreenInitResult } from "@conduit/types";
+import type { PlayerManifest } from "./manifest";
 
 const KEY = "conduit.player.manifest";
 
-export interface CachedManifest {
-  screenId: string;
-  status: ScreenInitResult["status"];
-  name: string | null;
-  location: string | null;
-  playlistId: string | null;
-  updatedAt: string;
-}
-
 /**
- * Minimal local cache (M1 uses localStorage; the device image will back this with
- * on-disk storage). Lets a returning device skip pairing and resume immediately.
+ * Minimal local cache (M1/M3 use localStorage; the device image will back this
+ * with on-disk storage + media files). Lets a returning device skip pairing and
+ * resume its playlist immediately, even with no server contact.
  */
-export function readManifest(): CachedManifest | null {
+export function readManifest(): PlayerManifest | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as CachedManifest) : null;
+    return raw ? (JSON.parse(raw) as PlayerManifest) : null;
   } catch {
     return null;
   }
 }
 
-export function writeManifest(m: CachedManifest): void {
+export function writeManifest(m: PlayerManifest): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(KEY, JSON.stringify(m));
