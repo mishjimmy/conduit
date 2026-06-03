@@ -1,78 +1,118 @@
 # Conduit — Digital Signage Platform
 
 Self-hosted, on-premises digital signage. A pnpm + Turborepo monorepo with two
-Next.js 16 apps (CMS + player), backed by Appwrite, with MQTT (Mosquitto) as the
-primary player↔CMS channel and HTTP polling as a fallback.
+Next.js 16 apps (CMS + player), backed by Appwrite, with **MQTT (Mosquitto)** as the
+primary player↔CMS channel and **HTTP polling** as a graceful fallback.
 
-> Status: **M1 — pairing + comms spine.** Subsequent milestones (layouts, playlists,
-> media, messages, groups, video, auto-update/remote-debug, deployment) are tracked in
-> the build plan.
+> Status: **feature-complete (M1–M9).** Core CMS/player features are verified live
+> against a real Appwrite + broker. Hardware-dependent paths — FFmpeg camera
+> compositing and the Pi-side agent (screenshot/reboot/noVNC/Tailscale) — are built
+> and await real gear to exercise end-to-end.
+
+## Features
+
+- **Screens & pairing** — devices self-register by MAC and show a QR + human code; an
+  operator pairs them in the CMS. Human-readable screen ids (`brave-otter`).
+- **Layouts** — percentage-positioned zones on a 1920×1080 canvas: slideshow, video,
+  camera-grid, pip, graphic, message, weather, clock, embed. Live builder + preview.
+- **Playlists** — ordered layouts with per-entry duration and transitions (hard cut /
+  fade-to-black / crossfade); the player runs them **locally** and **offline-first**.
+- **Media library** — upload to Appwrite Storage, browse/assign; player pre-fetches +
+  caches media for offline playback.
+- **Messages** — push text overlays per-screen / per-group / broadcast, with schedule,
+  auto-dismiss, and a full-screen **emergency broadcast**.
+- **Screen groups** — bulk playlist assignment and group-targeted messaging.
+- **Video** — go2rtc RTSP→HLS, FFmpeg `xstack`/overlay compositing; player plays HLS
+  via hls.js.
+- **Fleet ops** — heartbeats/online status, auto-update (boot + push), noVNC remote
+  screen, and a screenshot command.
 
 ## Layout
 
 ```
-apps/cms        Next.js 16 management UI (port 3000)
-apps/player     Next.js 16 fullscreen kiosk display (port 3001)
-packages/types  Shared zod schemas + MQTT topic/Appwrite channel helpers
-packages/ui     Shared Tailwind v4 theme + components
-services/bridge MQTT → Appwrite worker (ingests heartbeats → last_seen)
-infra           docker-compose, Mosquitto, Caddy, go2rtc configs
-appwrite.json   Appwrite database/collections/buckets (deploy via Appwrite CLI)
+apps/cms         Next.js 16 management UI (port 3000)
+apps/player      Next.js 16 fullscreen kiosk display (port 3001)
+packages/types   Shared zod schemas + MQTT topic/Appwrite channel helpers
+packages/ui      Shared Tailwind v4 theme, components, and the LayoutRenderer
+services/bridge  MQTT → Appwrite worker (ingests heartbeats → last_seen)
+infra            docker-compose, Mosquitto, Caddy, go2rtc configs
+pi-image         CustomPiOS config, scripts, and systemd units for the kiosk
+appwrite.json    Appwrite database/collections/buckets (deploy via Appwrite CLI)
 ```
 
 ## Prerequisites
 
-- Node 20+ (this repo is developed on Node 22).
-- pnpm via Corepack: `corepack enable` (or invoke as `corepack pnpm …`).
-- A self-hosted Appwrite instance.
-- Docker (for Mosquitto / the rest of the stack).
+- Node 20+ (developed on Node 22).
+- pnpm via Corepack: `corepack enable` (on Windows it may need admin — otherwise just
+  prefix commands with `corepack `, e.g. `corepack pnpm install`).
+- A self-hosted **Appwrite** instance.
+- **Mosquitto** reachable on the LAN with **both** an MQTT listener (`1883`) and a
+  **WebSocket** listener (`9001`) — the player browser connects over WebSocket.
+- Docker (for the broker / full stack).
 
 ## Setup
 
 ```sh
 corepack pnpm install
-cp .env.example .env          # then fill in Appwrite + MQTT values
+cp .env.example .env.local      # dev; fill in Appwrite + MQTT values
 ```
 
-Deploy the Appwrite schema (creates the `conduit` database, collections, buckets):
+Key `.env.local` values (a single root file feeds all apps + the bridge):
 
-```sh
-# Appwrite CLI — see https://appwrite.io/docs/tooling/command-line
-appwrite login
-appwrite push collections
-appwrite push buckets
+```ini
+APPWRITE_ENDPOINT=https://<appwrite-host>/v1
+APPWRITE_PROJECT_ID=<project id>
+APPWRITE_API_KEY=<server key, Databases scope>
+NEXT_PUBLIC_APPWRITE_ENDPOINT=https://<appwrite-host>/v1
+NEXT_PUBLIC_APPWRITE_PROJECT_ID=<project id>
+NEXT_PUBLIC_APPWRITE_DATABASE_ID=conduit
+MQTT_URL=mqtt://<broker-host>:1883
+NEXT_PUBLIC_MQTT_WS_URL=ws://<broker-host>:9001
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
-> `appwrite.json` uses the classic Databases (collections/documents) schema format.
-> If your Appwrite CLI expects the newer TablesDB format, run `appwrite pull` once to
-> reconcile.
+### Deploy the Appwrite schema
 
-Start the broker (and other infra):
+`appwrite.json` uses the **classic Databases** schema format with database id
+`conduit`. Newer Appwrite CLIs read `appwrite.config.json`, so copy it first:
 
 ```sh
-docker compose -f infra/docker-compose.yml up -d mosquitto
+appwrite client --endpoint https://<appwrite-host>/v1 --project-id <id> --key <key>
+cp appwrite.json appwrite.config.json        # PowerShell: Copy-Item appwrite.json appwrite.config.json -Force
+appwrite push collections --all --force
+appwrite push buckets --all --force
 ```
 
-Run everything in dev:
+In the Appwrite console also: add a **Web platform** for `localhost` (so the CMS
+browser SDK/Realtime aren't CORS-blocked), and create an **email/password user** for
+CMS login.
+
+> Notes: the `media` and `screenshots` buckets are public-read for the player/CMS to
+> display assets without a session. For videos over 30 MB, raise `_APP_STORAGE_LIMIT`
+> on the Appwrite server and bump `maximumFileSize` in `appwrite.json`.
+
+### Run in dev
 
 ```sh
-corepack pnpm dev                       # all apps via Turborepo
+docker compose -f infra/docker-compose.yml up -d mosquitto   # if running the broker here
+corepack pnpm dev                                            # all apps via Turborepo
 # or individually:
-corepack pnpm --filter @conduit/player dev
-corepack pnpm --filter @conduit/cms dev
-corepack pnpm --filter @conduit/bridge dev
+corepack pnpm --filter @conduit/bridge dev   # expect: "connected; subscribing to heartbeats"
+corepack pnpm --filter @conduit/player dev   # http://localhost:3001
+corepack pnpm --filter @conduit/cms dev      # http://localhost:3000
 ```
 
-## M1 end-to-end check
+## Quick end-to-end check
 
-1. Create an Appwrite user (CMS operator) and log in at http://localhost:3000/login.
-2. Open the player at http://localhost:3001/?mac=AA:BB:CC:DD:EE:FF — it registers and
-   shows a pairing code + QR.
-3. In the CMS, go to **Pair a screen**, enter the code, assign a name/location, submit.
-4. The player flips to the assigned view within ~1s (MQTT) — or ~30s via the polling
-   fallback if the broker is down.
-5. Confirm the bridge logs heartbeats and the screen's `last_seen` updates; the screens
-   list shows it **online**.
+1. Log in at http://localhost:3000/login.
+2. Open the player at http://localhost:3001/?mac=AA:BB:CC:DD:EE:FF — it shows a pairing
+   code + QR.
+3. CMS → **Pair a screen** → enter the code, set name/location → it flips to assigned
+   (~1s over MQTT, ~30s via polling fallback). The screens list shows it **online**.
+4. **Layouts** → build a layout (clock, media, etc.). **Playlists** → add layouts with
+   transitions. **Screens** → assign the playlist → the player rotates it.
+5. **Messages** → send/broadcast an overlay. **Groups** → bulk-assign. **Streams** →
+   add cameras + download `go2rtc.yml`. **Screen detail** → reload/screenshot/noVNC.
 
 ## Verification commands
 
@@ -85,28 +125,27 @@ corepack pnpm build
 ## Production deployment (Docker Compose)
 
 Everything except Appwrite runs from [infra/docker-compose.yml](infra/docker-compose.yml).
-Point `.env` at your Appwrite instance, then build + run from the repo root:
+Create a `.env` (Compose reads this; `cp .env.local .env`), then build + run:
 
 ```sh
 cd infra
 docker compose --env-file ../.env up -d --build
 ```
 
-This brings up: **cms** + **player** (Next standalone images), **bridge**,
-**mosquitto**, **go2rtc**, and **caddy** (internal-CA TLS for `conduit.local` /
-`player.conduit.local`). `NEXT_PUBLIC_*` values are inlined at image build time —
-they're wired as Compose build args from the same `.env`.
+Brings up **cms** + **player** (Next standalone images), **bridge**, **mosquitto**,
+**go2rtc**, and **caddy** (internal-CA TLS for `conduit.local` / `player.conduit.local`).
+`NEXT_PUBLIC_*` are inlined at image build time and wired as Compose build args from
+the same `.env`.
 
-- **mDNS:** set the server hostname to `conduit` (Avahi then answers `conduit.local`)
-  and run [infra/mdns-aliases.sh](infra/mdns-aliases.sh) to also answer
-  `player.conduit.local`.
-- **TLS trust:** export Caddy's internal CA root (`/data/caddy/pki/authorities/local/root.crt`)
-  and trust it on operator machines + bake it into the Pi image.
-- **Remote access:** install Tailscale on the server and every Pi (mesh path for
-  per-device noVNC + management).
+- **mDNS:** set the server hostname to `conduit` (Avahi answers `conduit.local`) and run
+  [infra/mdns-aliases.sh](infra/mdns-aliases.sh) for `player.conduit.local`.
+- **TLS trust:** export Caddy's internal CA root
+  (`/data/caddy/pki/authorities/local/root.crt`); trust it on operator machines + bake
+  it into the Pi image.
+- **Remote access:** install Tailscale on the server and every Pi.
 
 ## Device image (Raspberry Pi)
 
-Pi images are built with CustomPiOS — kiosk Chromium under a systemd watchdog,
-baked Tailscale pre-auth key + CA cert, boot-time auto-update, a noVNC remote
-screen, and an MQTT command agent. See [pi-image/README.md](pi-image/README.md).
+Built with CustomPiOS — kiosk Chromium under a systemd watchdog, baked Tailscale
+pre-auth key + CA cert, boot-time auto-update, a noVNC remote screen, and an MQTT
+command agent (screenshot/reboot/update). See [pi-image/README.md](pi-image/README.md).
