@@ -1,0 +1,23 @@
+# Caddy reverse proxy for Conduit, serving conduit.local over the internal CA.
+# NOTE (M9): path-based routing of the player under /player needs Next basePath
+# wiring so the player's /api routes resolve correctly. For now the CMS is at the
+# root and the player is reached on its own port/host in dev.
+
+{
+	# Internal CA: Caddy issues a cert for conduit.local from its local CA.
+	local_certs
+}
+
+conduit.local {
+	# CMS (management UI) at the root.
+	reverse_proxy cms:3000
+
+	# Appwrite API (same-origin so the browser session cookie powers Realtime).
+	handle_path /v1/* {
+		reverse_proxy appwrite:80
+	}
+}
+
+player.conduit.local {
+	reverse_proxy player:3001
+}

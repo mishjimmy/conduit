@@ -1,0 +1,74 @@
+# Conduit on-premises stack.
+#
+# M1 brings up the broker (and optionally go2rtc/caddy). Appwrite runs from its
+# own official compose and is joined via the shared `conduit` network. The CMS,
+# player, and bridge get Dockerfiles + service definitions in M9 — in dev they
+# run on the host via `pnpm dev` against this broker.
+
+name: conduit
+
+networks:
+  conduit:
+    driver: bridge
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "1883:1883" # MQTT (TCP) — server/bridge
+      - "9001:9001" # MQTT over WebSocket — player browser
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    networks:
+      - conduit
+
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    restart: unless-stopped
+    ports:
+      - "1984:1984" # API / HLS
+    volumes:
+      - ./go2rtc.yml:/config/go2rtc.yaml
+    networks:
+      - conduit
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - conduit
+
+  # mDNS: advertise conduit.local on the LAN. Easiest on the host network;
+  # on Linux run avahi-daemon on the host, or enable a container here:
+  # avahi:
+  #   image: flungo/avahi
+  #   network_mode: host
+  #   restart: unless-stopped
+
+  # --- Conduit apps (Dockerfiles land in M9) ---
+  # cms:
+  #   build: { context: .., dockerfile: apps/cms/Dockerfile }
+  #   env_file: ../.env
+  #   networks: [conduit]
+  # player:
+  #   build: { context: .., dockerfile: apps/player/Dockerfile }
+  #   env_file: ../.env
+  #   networks: [conduit]
+  # bridge:
+  #   build: { context: .., dockerfile: services/bridge/Dockerfile }
+  #   env_file: ../.env
+  #   networks: [conduit]
+
+volumes:
+  mosquitto-data:
+  caddy-data:
+  caddy-config:

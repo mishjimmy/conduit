@@ -1,0 +1,484 @@
+{
+    "projectId": "6a1f87ae000b2031252c",
+    "projectName": "conduit",
+    "databases": [
+        {
+            "$id": "conduit",
+            "name": "conduit",
+            "enabled": true
+        }
+    ],
+    "collections": [
+        {
+            "$id": "screens",
+            "databaseId": "conduit",
+            "name": "Screens",
+            "enabled": true,
+            "documentSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "attributes": [
+                {
+                    "key": "mac",
+                    "type": "string",
+                    "size": 17,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "name",
+                    "type": "string",
+                    "size": 128,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "location",
+                    "type": "string",
+                    "size": 128,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "playlist_id",
+                    "type": "string",
+                    "size": 64,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "format": "enum",
+                    "size": 16,
+                    "elements": [
+                        "pairing",
+                        "active",
+                        "disabled"
+                    ],
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "pairing_code",
+                    "type": "string",
+                    "size": 16,
+                    "required": false,
+                    "array": false,
+                    "default": ""
+                },
+                {
+                    "key": "pairing_expires_at",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "last_seen",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "player_version",
+                    "type": "string",
+                    "size": 32,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "group_ids",
+                    "type": "string",
+                    "size": 64,
+                    "required": false,
+                    "array": true
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "mac_unique",
+                    "type": "unique",
+                    "attributes": [
+                        "mac"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "pairing_code_idx",
+                    "type": "key",
+                    "attributes": [
+                        "pairing_code"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                },
+                {
+                    "key": "status_idx",
+                    "type": "key",
+                    "attributes": [
+                        "status"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
+                }
+            ]
+        },
+        {
+            "$id": "groups",
+            "databaseId": "conduit",
+            "name": "Groups",
+            "enabled": true,
+            "documentSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "size": 128,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "description",
+                    "type": "string",
+                    "size": 512,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "layouts",
+            "databaseId": "conduit",
+            "name": "Layouts",
+            "enabled": true,
+            "documentSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "size": 128,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "resolution",
+                    "type": "string",
+                    "size": 16,
+                    "required": false,
+                    "array": false,
+                    "default": "1920x1080"
+                },
+                {
+                    "key": "layers",
+                    "type": "string",
+                    "size": 65535,
+                    "required": false,
+                    "array": false,
+                    "default": "[]"
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "playlists",
+            "databaseId": "conduit",
+            "name": "Playlists",
+            "enabled": true,
+            "documentSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "size": 128,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "entries",
+                    "type": "string",
+                    "size": 65535,
+                    "required": false,
+                    "array": false,
+                    "default": "[]"
+                },
+                {
+                    "key": "loop",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": true
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "messages",
+            "databaseId": "conduit",
+            "name": "Messages",
+            "enabled": true,
+            "documentSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "attributes": [
+                {
+                    "key": "screen_id",
+                    "type": "string",
+                    "size": 64,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "group_id",
+                    "type": "string",
+                    "size": 64,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "body",
+                    "type": "string",
+                    "size": 2048,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "style",
+                    "type": "string",
+                    "format": "enum",
+                    "size": 16,
+                    "elements": [
+                        "info",
+                        "alert",
+                        "emergency"
+                    ],
+                    "required": false,
+                    "array": false,
+                    "default": "info"
+                },
+                {
+                    "key": "show_at",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "hide_at",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "dismissed_at",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "is_broadcast",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "media",
+            "databaseId": "conduit",
+            "name": "Media",
+            "enabled": true,
+            "documentSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "size": 256,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "type",
+                    "type": "string",
+                    "size": 32,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "appwrite_file_id",
+                    "type": "string",
+                    "size": 64,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "size",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "duration",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "tags",
+                    "type": "string",
+                    "size": 64,
+                    "required": false,
+                    "array": true
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "go2rtc_streams",
+            "databaseId": "conduit",
+            "name": "go2rtc Streams",
+            "enabled": true,
+            "documentSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "attributes": [
+                {
+                    "key": "name",
+                    "type": "string",
+                    "size": 128,
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "rtsp_url",
+                    "type": "string",
+                    "size": 512,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "composite_type",
+                    "type": "string",
+                    "size": 32,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "composite_config",
+                    "type": "string",
+                    "size": 8192,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
+                    "key": "hls_output_url",
+                    "type": "string",
+                    "size": 512,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                }
+            ],
+            "indexes": []
+        }
+    ],
+    "buckets": [
+        {
+            "$id": "media",
+            "name": "Media",
+            "enabled": true,
+            "fileSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "maximumFileSize": 30000000,
+            "allowedFileExtensions": [],
+            "compression": "none",
+            "encryption": true,
+            "antivirus": true
+        },
+        {
+            "$id": "screenshots",
+            "name": "Screenshots",
+            "enabled": true,
+            "fileSecurity": false,
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "maximumFileSize": 30000000,
+            "allowedFileExtensions": [
+                "png",
+                "jpg",
+                "jpeg",
+                "webp"
+            ],
+            "compression": "none",
+            "encryption": true,
+            "antivirus": true
+        }
+    ]
+}

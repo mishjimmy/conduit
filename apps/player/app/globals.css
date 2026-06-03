@@ -1,0 +1,12 @@
+@import "@conduit/ui/styles.css";
+
+@source "./**/*.{ts,tsx}";
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+}
