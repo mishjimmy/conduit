@@ -4,12 +4,11 @@
 #   player.conduit.local -> player (Pi kiosk)
 #   mqtt.conduit.local   -> Mosquitto websockets (wss for the player browser)
 #
-# Appwrite is external (its own domain/TLS), so it isn't proxied here — the apps
-# point NEXT_PUBLIC_APPWRITE_ENDPOINT straight at it.
+# Trust the Caddy internal CA root on every device: baked into the Pi image,
+# imported once on operator/browser machines. Appwrite is external (its own TLS).
 
 {
-	# Issue certs from Caddy's local internal CA. Trust this CA root on every
-	# device: baked into the Pi image, installed in operator browsers.
+	# Issue certs from Caddy's local internal CA.
 	local_certs
 }
 
