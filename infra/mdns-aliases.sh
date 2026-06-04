@@ -9,7 +9,7 @@
 set -euo pipefail
 
 IP="$(hostname -I | awk '{print $1}')"
-ALIASES=("player.conduit.local")
+ALIASES=("player.conduit.local" "mqtt.conduit.local")
 
 echo "Publishing mDNS aliases -> ${IP}"
 for name in "${ALIASES[@]}"; do

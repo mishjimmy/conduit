@@ -1,24 +1,21 @@
 # Caddy reverse proxy for Conduit, serving over the internal CA on conduit.local.
 #
-# The Pi kiosk loads https://player.conduit.local; operators use https://conduit.local.
-# (To serve the player under conduit.local/player instead, set basePath in the
-# player's next.config and make its client fetches basePath-aware.)
+#   conduit.local        -> CMS (operators)
+#   player.conduit.local -> player (Pi kiosk)
+#   mqtt.conduit.local   -> Mosquitto websockets (wss for the player browser)
+#
+# Appwrite is external (its own domain/TLS), so it isn't proxied here — the apps
+# point NEXT_PUBLIC_APPWRITE_ENDPOINT straight at it.
 
 {
-	# Issue certs from Caddy's local internal CA. Trust this CA on every device:
-	# the CA root is baked into the Pi image and installed in operator browsers.
+	# Issue certs from Caddy's local internal CA. Trust this CA root on every
+	# device: baked into the Pi image, installed in operator browsers.
 	local_certs
 }
 
 conduit.local {
 	# CMS (management UI)
 	reverse_proxy cms:3000
-
-	# Appwrite API — proxy under the same origin so the browser session cookie
-	# powers Realtime. Point this at your Appwrite host.
-	handle_path /v1/* {
-		reverse_proxy appwrite:80
-	}
 
 	# go2rtc HLS (single-origin avoids cross-origin/CORS for the player)
 	handle_path /go2rtc/* {
@@ -28,4 +25,10 @@ conduit.local {
 
 player.conduit.local {
 	reverse_proxy player:3001
+}
+
+mqtt.conduit.local {
+	# Mosquitto's WebSocket listener (9001). Caddy terminates wss with the
+	# internal CA; the player connects to wss://mqtt.conduit.local.
+	reverse_proxy mosquitto:9001
 }
