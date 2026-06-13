@@ -11,6 +11,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 KIOSK_USER="${KIOSK_USER:-kiosk}"
 id "$KIOSK_USER" >/dev/null 2>&1 || { echo "user '$KIOSK_USER' does not exist"; exit 1; }
 HOME_DIR="$(getent passwd "$KIOSK_USER" | cut -d: -f6)"
+# IP of the Conduit server (Caddy host). Needed because nss-mdns only resolves
+# single-label .local names, not the multi-label player./mqtt. ones we use:
+#   sudo SERVER_IP=10.0.0.26 KIOSK_USER=kiosk ./install.sh
+SERVER_IP="${SERVER_IP:-}"
 
 echo "==> Installing packages"
 apt-get update
@@ -24,6 +28,20 @@ echo "==> Ensuring mDNS (.local) name resolution"
 grep -q 'mdns4_minimal' /etc/nsswitch.conf \
   || sed -i 's/^hosts:.*/hosts: files mdns4_minimal [NOTFOUND=return] dns/' /etc/nsswitch.conf
 systemctl enable --now avahi-daemon
+
+echo "==> Pinning the server's .local names to its IP"
+# nss-mdns resolves conduit.local (single label) but NOT player./mqtt.conduit.local
+# (multi-label), which Chromium + the agent need. Map all three to SERVER_IP via
+# /etc/hosts (files is consulted before mDNS). Idempotent: the marker line is
+# rewritten on every run.
+if [ -n "$SERVER_IP" ]; then
+  sed -i '/ # conduit-server$/d' /etc/hosts
+  echo "$SERVER_IP conduit.local player.conduit.local mqtt.conduit.local # conduit-server" >> /etc/hosts
+else
+  echo "   WARN: SERVER_IP not set — player.conduit.local / mqtt.conduit.local won't"
+  echo "         resolve (mDNS can't do multi-label .local). Re-run with SERVER_IP=<ip>"
+  echo "         or add the line manually to /etc/hosts."
+fi
 
 echo "==> Installing Tailscale"
 command -v tailscale >/dev/null 2>&1 || curl -fsSL https://tailscale.com/install.sh | sh

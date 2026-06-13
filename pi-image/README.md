@@ -18,10 +18,13 @@ setup works on any PC or Pi.
    git clone https://github.com/mishjimmy/conduit.git
    cd conduit/pi-image
    nano conduit-ca.crt          # paste the server's Caddy CA root (BEGIN/END CERTIFICATE)
-   sudo KIOSK_USER=kiosk ./install.sh
+   sudo SERVER_IP=10.0.0.26 KIOSK_USER=kiosk ./install.sh   # SERVER_IP = the Caddy host
    sudo nano /etc/conduit/conduit.conf   # set TAILSCALE_AUTHKEY; confirm URLs + MQTT_HOST
    sudo reboot
    ```
+   `SERVER_IP` is required: mDNS resolves `conduit.local` but not the multi-label
+   `player.conduit.local` / `mqtt.conduit.local` the kiosk needs, so `install.sh`
+   pins all three to that IP in `/etc/hosts`. Keep the server on a static IP.
 3. The box boots into the player, shows a pairing code, appears in Tailscale and in
    the CMS Screens list. Pair it and assign a playlist.
 
