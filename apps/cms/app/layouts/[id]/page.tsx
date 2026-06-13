@@ -53,6 +53,11 @@ export default function LayoutBuilderPage() {
       map.get(mediaId) ?? (/^(https?:)?\/\//.test(mediaId) || mediaId.startsWith("/") ? mediaId : undefined);
   }, [media]);
 
+  const resolveStreamUrl = useMemo(() => {
+    const map = new Map(streams.map((s) => [s.id, s.hlsUrl]));
+    return (id: string) => map.get(id);
+  }, [streams]);
+
   const openPicker: OpenPicker = (apply) => {
     pendingApply.current = apply;
     setPickerOpen(true);
@@ -176,7 +181,12 @@ export default function LayoutBuilderPage() {
 
         <section className="flex min-w-0 flex-1 items-center justify-center bg-neutral-900 p-6">
           <div className="aspect-video w-full max-w-5xl shadow-lg">
-            <LayoutRenderer layers={layers} showZoneOutlines resolveMediaUrl={resolveMediaUrl} />
+            <LayoutRenderer
+              layers={layers}
+              showZoneOutlines
+              resolveMediaUrl={resolveMediaUrl}
+              resolveStreamUrl={resolveStreamUrl}
+            />
           </div>
         </section>
       </div>
@@ -316,11 +326,10 @@ function TypeFields({
         </div>
       );
     case "video":
-    case "camera-grid":
     case "pip":
       return (
         <div className="space-y-1">
-          <span className={labelCls}>Stream</span>
+          <span className={labelCls}>Camera</span>
           <select
             className={inputCls}
             value={streams.find((s) => s.hlsUrl === layer.hlsUrl)?.id ?? ""}
@@ -329,10 +338,10 @@ function TypeFields({
               onPatch(stream ? { hlsUrl: stream.hlsUrl, streamId: stream.id } : { hlsUrl: "" });
             }}
           >
-            <option value="">— pick a stream —</option>
+            <option value="">— pick a camera —</option>
             {streams.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} ({s.type})
+                {s.name}
               </option>
             ))}
           </select>
@@ -345,6 +354,36 @@ function TypeFields({
           />
         </div>
       );
+    case "camera-grid": {
+      const selectedIds = layer.streamIds;
+      const toggle = (id: string, on: boolean) =>
+        onPatch({
+          streamIds: on ? [...selectedIds, id] : selectedIds.filter((s) => s !== id),
+        });
+      return (
+        <div className="space-y-1">
+          <span className={labelCls}>Cameras (pick up to 4 — rendered as a grid)</span>
+          {streams.length === 0 ? (
+            <p className={labelCls}>No cameras yet — add some on the Cameras page.</p>
+          ) : (
+            streams.map((s) => {
+              const checked = selectedIds.includes(s.id);
+              return (
+                <label key={s.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={!checked && selectedIds.length >= 4}
+                    onChange={(e) => toggle(s.id, e.target.checked)}
+                  />
+                  {s.name}
+                </label>
+              );
+            })
+          )}
+        </div>
+      );
+    }
     case "slideshow":
       return <SlideshowFields layer={layer} onPatch={onPatch} openPicker={openPicker} />;
     case "message":

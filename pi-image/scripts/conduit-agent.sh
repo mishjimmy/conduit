@@ -31,8 +31,8 @@ mosquitto_sub -h "${MQTT_HOST}" -p "${MQTT_PORT}" \
       action="$(echo "$line" | sed -n 's/.*"action"[: ]*"\([^"]*\)".*/\1/p')"
       case "$action" in
         screenshot) capture_and_upload ;;
-        reboot) systemctl reboot ;;
-        update | reload) systemctl restart conduit-kiosk.service ;;
+        reboot) sudo systemctl reboot ;;
+        update | reload) sudo systemctl restart conduit-kiosk.service ;;
         *) : ;; # ignore non-command payloads (e.g. broadcast messages)
       esac
     done

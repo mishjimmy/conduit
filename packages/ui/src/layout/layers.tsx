@@ -3,7 +3,7 @@
 import * as React from "react";
 import Hls from "hls.js";
 import type { Layer, MessageStyle } from "@conduit/types";
-import { passthroughMediaResolver, type MediaResolver } from "./media";
+import { passthroughMediaResolver, type MediaResolver, type StreamResolver } from "./media";
 
 /** A message to display on the message layer (null when idle). */
 export interface ActiveMessage {
@@ -249,6 +249,43 @@ function VideoLayer({ url, label }: { url: string; label: string }) {
   return <video ref={ref} autoPlay muted playsInline style={{ ...fill, objectFit: "cover" }} />;
 }
 
+/** Client-side multiview: render up to 4 camera streams as a grid of <video>. */
+function CameraGridLayer({
+  layer,
+  resolveStreamUrl,
+}: {
+  layer: Extract<Layer, { type: "camera-grid" }>;
+  resolveStreamUrl?: StreamResolver;
+}) {
+  const ids = layer.streamIds;
+  if (ids.length === 0) return <PlaceholderBox label="camera grid (no cameras)" />;
+
+  const cols = ids.length === 1 ? 1 : 2;
+  const rows = Math.ceil(ids.length / cols);
+
+  return (
+    <div
+      style={{
+        ...fill,
+        display: "grid",
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gridTemplateRows: `repeat(${rows}, 1fr)`,
+        gap: "2px",
+        background: "#000",
+      }}
+    >
+      {ids.map((id, i) => {
+        const url = resolveStreamUrl?.(id);
+        return (
+          <div key={`${id}-${i}`} style={{ position: "relative", minWidth: 0, minHeight: 0 }}>
+            {url ? <VideoLayer url={url} label="camera" /> : <PlaceholderBox label={`stream ${id}`} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function VideoPlaceholder({ label, url }: { label: string; url?: string }) {
   return (
     <div style={{ ...fill, ...center, flexDirection: "column", background: "#111", color: "#888", gap: "1cqh" }}>
@@ -282,10 +319,12 @@ function PlaceholderBox({ label }: { label: string }) {
 export function LayerView({
   layer,
   resolveMediaUrl,
+  resolveStreamUrl,
   message,
 }: {
   layer: Layer;
   resolveMediaUrl?: MediaResolver;
+  resolveStreamUrl?: StreamResolver;
   message?: ActiveMessage | null;
 }) {
   const resolve = resolveMediaUrl ?? passthroughMediaResolver;
@@ -305,7 +344,7 @@ export function LayerView({
     case "video":
       return <VideoLayer url={layer.hlsUrl} label="video" />;
     case "camera-grid":
-      return <VideoLayer url={layer.hlsUrl} label="camera grid" />;
+      return <CameraGridLayer layer={layer} resolveStreamUrl={resolveStreamUrl} />;
     case "pip":
       return <VideoLayer url={layer.hlsUrl} label="picture-in-picture" />;
     default:

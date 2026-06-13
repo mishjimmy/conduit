@@ -24,6 +24,21 @@ function mediaIdsFromLayers(layers: Layer[]): string[] {
   return ids.filter((id) => id && !isUrl(id));
 }
 
+/** Collect camera stream ids referenced by camera-grid layers. */
+function streamIdsFromLayers(layers: Layer[]): string[] {
+  const ids: string[] = [];
+  for (const layer of layers) {
+    if (layer.type === "camera-grid") ids.push(...layer.streamIds);
+  }
+  return ids.filter(Boolean);
+}
+
+/** go2rtc HLS URL for a stream id (browser-facing base). */
+function streamHlsUrl(id: string): string {
+  const base = process.env.NEXT_PUBLIC_GO2RTC_URL ?? "http://localhost:1984";
+  return `${base}/api/stream.m3u8?src=${id}`;
+}
+
 /**
  * Everything the player needs to run its assigned playlist locally and offline:
  * the playlist entries plus every layout they reference, in one payload.
@@ -58,6 +73,7 @@ export async function GET(req: Request) {
     playlist: null,
     layouts: {},
     media: {},
+    streams: {},
   };
 
   if (!screen.playlist_id) return NextResponse.json(manifest);
@@ -118,6 +134,13 @@ export async function GET(req: Request) {
       }
     }),
   );
+
+  // Resolve camera stream ids to go2rtc HLS URLs (rendered client-side as a grid).
+  for (const sid of new Set(
+    Object.values(manifest.layouts).flatMap((l) => streamIdsFromLayers(l.layers)),
+  )) {
+    manifest.streams[sid] = streamHlsUrl(sid);
+  }
 
   return NextResponse.json(manifest);
 }

@@ -6,4 +6,5 @@ export { LayerView, type ActiveMessage } from "./layout/layers";
 export {
   passthroughMediaResolver,
   type MediaResolver,
+  type StreamResolver,
 } from "./layout/media";

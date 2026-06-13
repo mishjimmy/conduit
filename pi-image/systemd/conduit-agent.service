@@ -1,10 +1,14 @@
 [Unit]
 Description=Conduit device command agent (screenshot / reboot / update)
-After=network-online.target
+After=conduit-kiosk.service network-online.target
 Wants=network-online.target
 
 [Service]
+# Runs as the kiosk user (for X access to capture screenshots); reboot/restart
+# go through sudo (install.sh adds a NOPASSWD rule). User is set by install.sh.
+User=pi
 Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
 ExecStart=/opt/conduit/conduit-agent.sh
 Restart=always
 RestartSec=5

@@ -1,15 +1,20 @@
 [Unit]
 Description=Conduit kiosk (Chromium)
-After=graphical.target network-online.target conduit-boot-update.service
+After=systemd-user-sessions.service network-online.target conduit-boot-update.service
 Wants=network-online.target
 
 [Service]
+# User is set to the kiosk account by install.sh.
 User=pi
-Environment=DISPLAY=:0
-ExecStart=/opt/conduit/kiosk.sh
-# Watchdog: relaunch Chromium if it crashes or is closed.
+PAMName=login
+TTYPath=/dev/tty7
+StandardInput=tty
+Environment=XAUTHORITY=%h/.Xauthority
+# Start a minimal X server and run the kiosk as its only client (no desktop/WM).
+ExecStart=/usr/bin/xinit /opt/conduit/kiosk.sh -- :0 vt7 -nolisten tcp -nocursor
+# Watchdog: relaunch if Chromium/X crashes or exits.
 Restart=always
 RestartSec=3
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target

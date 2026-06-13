@@ -1,62 +1,66 @@
-# Conduit Player Image (CustomPiOS)
+# Conduit Player Device
 
-Builds a Raspberry Pi OS image that boots straight into the Conduit player in a
-Chromium kiosk, self-registers via its MAC, auto-updates, enrolls in Tailscale,
-and exposes a noVNC remote screen + a command agent.
+Provisions a Linux thin client (**Debian 12 / x86-64** — e.g. an i5 mini PC) or a
+Raspberry Pi into a Conduit player: boots into a Chromium kiosk that self-registers
+by MAC, trusts the internal CA, joins Tailscale, auto-updates, and runs a noVNC
+remote screen + a command agent.
 
-## What gets installed
+The kiosk starts its own minimal X via `xinit` (no desktop/Wayland), so the same
+setup works on any PC or Pi.
 
-Packages (apt): `chromium-browser unclutter scrot x11vnc novnc websockify
-mosquitto-clients curl ca-certificates libnss3-tools tailscale`.
+## Fastest path — provision a live device
 
-Files:
+1. **Flash Debian 12** (netinst/minimal is fine — no desktop needed). During setup
+   create a user (e.g. `kiosk`) and enable SSH.
+2. SSH in, then:
+   ```sh
+   sudo apt-get update && sudo apt-get install -y git
+   git clone https://github.com/mishjimmy/conduit.git
+   cd conduit/pi-image
+   nano conduit-ca.crt          # paste the server's Caddy CA root (BEGIN/END CERTIFICATE)
+   sudo KIOSK_USER=kiosk ./install.sh
+   sudo nano /etc/conduit/conduit.conf   # set TAILSCALE_AUTHKEY; confirm URLs + MQTT_HOST
+   sudo reboot
+   ```
+3. The box boots into the player, shows a pairing code, appears in Tailscale and in
+   the CMS Screens list. Pair it and assign a playlist.
 
-| Source | Destination | Purpose |
-|---|---|---|
-| `config` | `/etc/conduit/conduit.conf` | per-device config (URLs, MQTT host, Tailscale key) |
-| `scripts/*.sh` | `/opt/conduit/` | device-info, kiosk, boot-update, agent, novnc, ca-install |
-| `systemd/*.service` | `/etc/systemd/system/` | kiosk (watchdog), boot-update, agent, novnc, tailscale |
-| Caddy CA root | `/etc/conduit/conduit-ca.crt` | trusted so `https://player.conduit.local` is valid |
+`install.sh` installs the packages, sets up non-root X (`Xwrapper`), trusts the CA,
+installs `/opt/conduit/*` + the systemd units (as the kiosk user), adds a sudoers
+rule so the agent can reboot/restart, and enables the services.
 
-Enable the services:
+## Zero-touch — unattended installer USB
 
-```sh
-systemctl enable conduit-boot-update conduit-kiosk conduit-agent conduit-novnc conduit-tailscale
-```
+To skip the manual "create a user, SSH in, run install.sh" steps, build a
+self-installing USB stick: see [`installer/`](installer/). It repacks a Debian
+netinst ISO with a preseed that creates the `kiosk` user and runs `install.sh`
+automatically, so the box installs and boots into the player with no keyboard.
 
-## Baking (CustomPiOS module sketch)
+## What runs (systemd)
 
-1. Create a CustomPiOS module `conduit` and copy `config`, `scripts/`, and
-   `systemd/` into the image (`/etc/conduit`, `/opt/conduit`, `/etc/systemd/system`).
-2. In the module's `start_chroot_script`: `apt-get install` the packages above,
-   `chmod +x /opt/conduit/*.sh`, run `/opt/conduit/ca-install.sh`, and
-   `systemctl enable` the units.
-3. Bake the **Tailscale pre-auth key** into `/etc/conduit/conduit.conf`
-   (`TAILSCALE_AUTHKEY=...`) and the **Caddy CA root** into
-   `/etc/conduit/conduit-ca.crt` (copy from the server's
-   `/data/caddy/pki/authorities/local/root.crt`).
-4. Set the device's Chromium/X autologin so `graphical.target` reaches the
-   kiosk service.
+| Unit | Role |
+|---|---|
+| `conduit-tailscale` | one-shot tailnet enrollment via the baked pre-auth key |
+| `conduit-boot-update` | compares `/api/version` to the local version; restarts the kiosk if changed |
+| `conduit-kiosk` | `xinit` → Chromium kiosk at `${CONDUIT_PLAYER_URL}/?mac=<MAC>` (watchdog: `Restart=always`) |
+| `conduit-agent` | MQTT `screens/<id>/command` + broadcast → screenshot / reboot / update |
+| `conduit-novnc` | `x11vnc` + `websockify` on `:6080` (reached over Tailscale, embedded in the CMS) |
 
-## Boot flow
+## Config (`/etc/conduit/conduit.conf`)
 
-```
-power on
- └─ tailscaled + conduit-tailscale.service   → join the tailnet (pre-auth key)
- └─ conduit-boot-update.service              → GET /api/version; restart kiosk if changed
- └─ conduit-kiosk.service (Restart=always)   → Chromium kiosk → player.conduit.local/?mac=<MAC>
- └─ conduit-agent.service                    → MQTT screens/<id>/command + broadcast
- └─ conduit-novnc.service                    → x11vnc + websockify on :6080
-```
+- `CONDUIT_PLAYER_URL` / `CONDUIT_BASE_URL` — the Caddy-served URLs.
+- `MQTT_HOST` / `MQTT_PORT` — broker for the agent (TCP, e.g. `conduit.local:1883`).
+- `TAILSCALE_AUTHKEY` — baked pre-auth key for zero-touch enrollment.
+- `CHROMIUM_BIN` — `chromium` (Debian) / `chromium-browser` (Pi OS, Ubuntu).
 
-The player self-registers with its MAC and shows the pairing code; an operator
-pairs it in the CMS and assigns a playlist. Updates land on next reboot
-(`boot-update`) or instantly via the CMS **Push update** command (the agent /
-browser reload). **Reboot** and **Screenshot** commands are handled by the agent
-(`scrot` → upload to `/api/screens/screenshot`).
+Everything keys off the device MAC, so the disk image is identical across devices.
 
-## Per-device override
+## Replicating to a fleet
 
-Everything keys off the MAC, so the image is identical across devices. To point a
-device at a different server or broker, edit `/etc/conduit/conduit.conf` on the
-boot partition.
+Once one device is verified, make it the golden image:
+- Clone the disk to a `.img` (`dd if=/dev/sdX | gzip > conduit-player.img.gz`) and write
+  it to the other thin clients, **or**
+- script the same `install.sh` run via your provisioning tool (PXE/Ansible/Clonezilla).
+
+The reusable Tailscale auth key + MAC-based registration mean each clone enrolls and
+self-registers on first boot with no per-device edits.

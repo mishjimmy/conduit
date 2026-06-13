@@ -1,14 +1,16 @@
 [Unit]
 Description=Conduit noVNC remote screen
-After=graphical.target
-Wants=graphical.target
+After=conduit-kiosk.service
+Wants=conduit-kiosk.service
 
 [Service]
+# User is set to the kiosk account by install.sh.
 User=pi
 Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
 ExecStart=/opt/conduit/novnc.sh
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target

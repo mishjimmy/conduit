@@ -17,7 +17,7 @@ export function createLayer(type: LayerType, zIndex: number): Layer {
     case "video":
       return { ...base, type, hlsUrl: "" };
     case "camera-grid":
-      return { ...base, type, hlsUrl: "", streamId: "" };
+      return { ...base, type, streamIds: [] };
     case "pip":
       return { ...base, type, hlsUrl: "", streamId: "", pipCorner: "BR" };
     case "graphic":

@@ -29,9 +29,8 @@ export const videoLayerSchema = z.object({
 export const cameraGridLayerSchema = z.object({
   ...baseLayer,
   type: z.literal("camera-grid"),
-  /** Resolved single HLS stream produced by FFmpeg xstack compositing. */
-  hlsUrl: z.string(),
-  streamId: z.string(),
+  /** Up to 4 camera stream ids; the player renders them as a client-side grid. */
+  streamIds: z.array(z.string()).default([]),
 });
 
 export const pipPositionSchema = z.enum(["TR", "TL", "BR", "BL"]);

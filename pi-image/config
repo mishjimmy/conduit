@@ -12,5 +12,5 @@ MQTT_PORT="1883"
 # Tailscale pre-auth key, baked at image build for zero-touch tailnet enrollment.
 TAILSCALE_AUTHKEY=""
 
-# Chromium binary name (chromium-browser on Raspberry Pi OS, chromium elsewhere).
-CHROMIUM_BIN="chromium-browser"
+# Chromium binary name: "chromium" on Debian, "chromium-browser" on Raspberry Pi OS / Ubuntu.
+CHROMIUM_BIN="chromium"

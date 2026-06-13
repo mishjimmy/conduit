@@ -8,5 +8,8 @@
  */
 export type MediaResolver = (mediaId: string) => string | undefined;
 
+/** Resolve a camera stream id to its HLS URL (go2rtc). */
+export type StreamResolver = (streamId: string) => string | undefined;
+
 export const passthroughMediaResolver: MediaResolver = (mediaId) =>
   /^(https?:)?\/\//.test(mediaId) || mediaId.startsWith("/") ? mediaId : undefined;
