@@ -1,0 +1,22 @@
+# Publishes player.conduit.local + mqtt.conduit.local as mDNS aliases for this
+# host, persistently. mdns-aliases.sh re-reads the host IP each start, and
+# Restart=always re-publishes if avahi or the network blips.
+#
+# Install (adjust the path if your clone isn't at /root/conduit):
+#   sudo cp infra/conduit-mdns.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now conduit-mdns.service
+[Unit]
+Description=Conduit mDNS aliases (player/mqtt .conduit.local -> this host)
+After=network-online.target avahi-daemon.service
+Wants=network-online.target
+Requires=avahi-daemon.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env bash /root/conduit/infra/mdns-aliases.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
