@@ -122,6 +122,7 @@ export default function ScreensPage() {
                 <div>Location: {s.location ?? "—"}</div>
                 <div>MAC: {s.mac}</div>
                 <div>Version: {s.player_version ?? "—"}</div>
+                <div>Resolution: {s.resolution ?? "—"}</div>
                 {s.status === "active" && (
                   <label className="flex items-center gap-2 pt-1">
                     <span className="text-xs text-muted-foreground">Playlist</span>

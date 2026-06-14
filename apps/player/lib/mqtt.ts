@@ -112,11 +112,15 @@ export function startHeartbeat(
   getCurrentLayoutId: () => string | null,
 ): () => void {
   const send = () => {
+    // Physical panel resolution: CSS pixels scaled by the device pixel ratio.
+    const dpr = window.devicePixelRatio || 1;
+    const resolution = `${Math.round(window.screen.width * dpr)}x${Math.round(window.screen.height * dpr)}`;
     const hb: Heartbeat = {
       screenId,
       online: true,
       currentLayoutId: getCurrentLayoutId(),
       playerVersion: PLAYER_VERSION,
+      resolution,
       ts: new Date().toISOString(),
     };
     client.publish(topics.heartbeat(screenId), JSON.stringify(hb), { qos: 1 });

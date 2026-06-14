@@ -95,6 +95,7 @@ export default function ScreenDetailPage() {
             <div>Location: {screen.location ?? "—"}</div>
             <div>MAC: {screen.mac}</div>
             <div>Version: {screen.player_version ?? "—"}</div>
+            <div>Resolution: {screen.resolution ?? "—"}</div>
             <div>Last seen: {screen.last_seen ? new Date(screen.last_seen).toLocaleString() : "—"}</div>
           </CardContent>
         </Card>

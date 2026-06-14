@@ -16,6 +16,7 @@ export const screenSchema = z.object({
   pairing_expires_at: z.string().nullable().default(null),
   last_seen: z.string().nullable().default(null),
   player_version: z.string().nullable().default(null),
+  resolution: z.string().nullable().default(null),
   group_ids: z.array(z.string()).default([]),
   vnc_host: z.string().nullable().default(null),
   last_screenshot: z.string().nullable().default(null),
@@ -38,6 +39,9 @@ export const heartbeatSchema = z.object({
   online: z.literal(true),
   currentLayoutId: z.string().nullable(),
   playerVersion: z.string(),
+  // Physical panel resolution, e.g. "3840x2160". Optional for back-compat with
+  // players that predate this field.
+  resolution: z.string().nullable().default(null),
   ts: z.string(),
 });
 export type Heartbeat = z.infer<typeof heartbeatSchema>;

@@ -97,6 +97,14 @@
                     "default": null
                 },
                 {
+                    "key": "resolution",
+                    "type": "string",
+                    "size": 32,
+                    "required": false,
+                    "array": false,
+                    "default": null
+                },
+                {
                     "key": "group_ids",
                     "type": "string",
                     "size": 64,

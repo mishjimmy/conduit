@@ -44,10 +44,13 @@ async function handleHeartbeat(topic: string, raw: Buffer) {
   }
 
   try {
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.screens, screenId, {
+    const update: Record<string, unknown> = {
       last_seen: new Date().toISOString(),
       player_version: parsed.data.playerVersion,
-    });
+    };
+    // Only write resolution when the player reports it (back-compat).
+    if (parsed.data.resolution) update.resolution = parsed.data.resolution;
+    await databases.updateDocument(DATABASE_ID, COLLECTIONS.screens, screenId, update);
   } catch (err) {
     // A heartbeat from an unknown/deleted screen is non-fatal.
     if (err instanceof AppwriteException && err.code === 404) {
