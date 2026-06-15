@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Trust Caddy's internal CA root so https://player.conduit.local is valid for the
+# Trust Caddy's internal CA root so https://conduitplayer.local is valid for the
 # system and for Chromium (NSS). Place the CA root at /etc/conduit/conduit-ca.crt
 # (baked into the image from Caddy's /data/caddy/pki/authorities/local/root.crt).
 set -euo pipefail

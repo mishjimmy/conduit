@@ -1,8 +1,10 @@
 # Caddy reverse proxy for Conduit, serving over the internal CA on conduit.local.
 #
 #   conduit.local        -> CMS (operators)
-#   player.conduit.local -> player (Pi kiosk)
-#   mqtt.conduit.local   -> Mosquitto websockets (wss for the player browser)
+#   conduitplayer.local  -> player (Pi kiosk)
+#   conduitmqtt.local    -> Mosquitto websockets (wss for the player browser)
+#
+# All single-label .local names so they resolve over mDNS without /etc/hosts pins.
 #
 # Trust the Caddy internal CA root on every device: baked into the Pi image,
 # imported once on operator/browser machines. Appwrite is external (its own TLS).
@@ -22,12 +24,12 @@ conduit.local {
 	}
 }
 
-player.conduit.local {
+conduitplayer.local {
 	reverse_proxy player:3001
 }
 
-mqtt.conduit.local {
+conduitmqtt.local {
 	# Mosquitto's WebSocket listener (9001). Caddy terminates wss with the
-	# internal CA; the player connects to wss://mqtt.conduit.local.
+	# internal CA; the player connects to wss://conduitmqtt.local.
 	reverse_proxy mosquitto:9001
 }

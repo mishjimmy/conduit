@@ -11,9 +11,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 KIOSK_USER="${KIOSK_USER:-kiosk}"
 id "$KIOSK_USER" >/dev/null 2>&1 || { echo "user '$KIOSK_USER' does not exist"; exit 1; }
 HOME_DIR="$(getent passwd "$KIOSK_USER" | cut -d: -f6)"
-# IP of the Conduit server (Caddy host). Needed because nss-mdns only resolves
-# single-label .local names, not the multi-label player./mqtt. ones we use:
-#   sudo SERVER_IP=10.0.0.26 KIOSK_USER=kiosk ./install.sh
+# Optional: IP of the Conduit server (Caddy host). The .local names are all
+# single-label now, so they resolve over mDNS without this. Only set it to pin
+# them in /etc/hosts as a fallback where multicast mDNS is filtered:
+#   sudo SERVER_IP=10.2.1.84 KIOSK_USER=kiosk ./install.sh
 SERVER_IP="${SERVER_IP:-}"
 
 echo "==> Installing packages"
@@ -29,18 +30,15 @@ grep -q 'mdns4_minimal' /etc/nsswitch.conf \
   || sed -i 's/^hosts:.*/hosts: files mdns4_minimal [NOTFOUND=return] dns/' /etc/nsswitch.conf
 systemctl enable --now avahi-daemon
 
-echo "==> Pinning the server's .local names to its IP"
-# nss-mdns resolves conduit.local (single label) but NOT player./mqtt.conduit.local
-# (multi-label), which Chromium + the agent need. Map all three to SERVER_IP via
-# /etc/hosts (files is consulted before mDNS). Idempotent: the marker line is
-# rewritten on every run.
+# The server's .local names (conduit.local, conduitplayer.local, conduitmqtt.local)
+# are all single-label, so nss-mdns resolves them over mDNS — no /etc/hosts needed.
+# If multicast mDNS is filtered on this network, pass SERVER_IP=<ip> to pin them
+# statically as a fallback (files is consulted before mDNS). Idempotent: the marker
+# line is rewritten on every run.
 if [ -n "$SERVER_IP" ]; then
+  echo "==> Pinning the server's .local names to $SERVER_IP (mDNS fallback)"
   sed -i '/ # conduit-server$/d' /etc/hosts
-  echo "$SERVER_IP conduit.local player.conduit.local mqtt.conduit.local # conduit-server" >> /etc/hosts
-else
-  echo "   WARN: SERVER_IP not set — player.conduit.local / mqtt.conduit.local won't"
-  echo "         resolve (mDNS can't do multi-label .local). Re-run with SERVER_IP=<ip>"
-  echo "         or add the line manually to /etc/hosts."
+  echo "$SERVER_IP conduit.local conduitplayer.local conduitmqtt.local # conduit-server" >> /etc/hosts
 fi
 
 echo "==> Installing Tailscale"

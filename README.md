@@ -140,13 +140,27 @@ make ca                  # extract Caddy's CA root (conduit-ca.crt) for devices
 ```
 
 Brings up **cms** + **player** (Next standalone images), **bridge**, **mosquitto**,
-**go2rtc**, and **caddy** (internal-CA TLS for `conduit.local` / `player.conduit.local`).
+**go2rtc**, and **caddy** (internal-CA TLS for `conduit.local` / `conduitplayer.local`).
 Stable `conduit.local` URLs and internal service URLs default inside the Compose file,
 so `.env` only carries the Appwrite coordinates + API keys. `NEXT_PUBLIC_*` are inlined
 at image build time and wired as Compose build args.
 
-- **mDNS:** set the server hostname to `conduit` (Avahi answers `conduit.local`) and run
-  [infra/mdns-aliases.sh](infra/mdns-aliases.sh) for `player.conduit.local`.
+- **mDNS:** set the server hostname to `conduit` (Avahi answers `conduit.local`), then
+  publish the `conduitplayer.local` / `conduitmqtt.local` aliases. All single-label, so
+  clients resolve them over mDNS with no `/etc/hosts` pinning. Run once to test:
+
+  ```sh
+  sudo apt install -y avahi-daemon avahi-utils
+  ./infra/mdns-aliases.sh
+  ```
+
+  To make it persistent (re-publishes on reboot / network blips), install the unit:
+
+  ```sh
+  sudo cp infra/conduit-mdns.service /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now conduit-mdns.service
+  ```
 - **TLS trust:** `make ca` writes Caddy's internal CA root to `conduit-ca.crt`; trust it
   on operator machines + bake it into the Pi image.
 - **Remote access:** install Tailscale on the server and every Pi.

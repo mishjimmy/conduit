@@ -9,7 +9,7 @@
 # The root .env is auto-discovered — no --env-file flag needed. Stable internal
 # URLs default in this file; .env only carries what changes per deployment.
 #
-# mDNS (conduit.local + player./mqtt. aliases) is still the host avahi setup —
+# mDNS (conduit.local + conduitplayer./conduitmqtt. aliases) is still the host avahi setup —
 # see infra/conduit-mdns.service. Grab the Caddy CA for devices with `make ca`.
 
 name: conduit
@@ -72,7 +72,7 @@ services:
         NEXT_PUBLIC_APPWRITE_ENDPOINT: ${APPWRITE_ENDPOINT}
         NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${APPWRITE_PROJECT_ID}
         NEXT_PUBLIC_APPWRITE_DATABASE_ID: ${APPWRITE_DATABASE_ID}
-        NEXT_PUBLIC_MQTT_WS_URL: ${NEXT_PUBLIC_MQTT_WS_URL:-wss://mqtt.conduit.local}
+        NEXT_PUBLIC_MQTT_WS_URL: ${NEXT_PUBLIC_MQTT_WS_URL:-wss://conduitmqtt.local}
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://conduit.local}
         NEXT_PUBLIC_PLAYER_VERSION: ${NEXT_PUBLIC_PLAYER_VERSION:-0.0.0}
         NEXT_PUBLIC_OPENWEATHER_API_KEY: ${NEXT_PUBLIC_OPENWEATHER_API_KEY:-}
@@ -108,7 +108,7 @@ services:
     depends_on: [cms, player]
     networks: [conduit]
 
-  # mDNS for conduit.local + player./mqtt.conduit.local stays a host-level avahi
+  # mDNS for conduit.local + conduitplayer./conduitmqtt.local stays a host-level avahi
   # setup (infra/conduit-mdns.service); see infra/mdns-aliases.sh.
 
 volumes:

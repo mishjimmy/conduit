@@ -2,7 +2,7 @@
 # Values can be overridden per-device by editing this file on the boot partition.
 
 # Where the player app and its API are served (Caddy / central server).
-CONDUIT_PLAYER_URL="https://player.conduit.local"
+CONDUIT_PLAYER_URL="https://conduitplayer.local"
 CONDUIT_BASE_URL="https://conduit.local"
 
 # MQTT broker the device agent subscribes to for commands.
