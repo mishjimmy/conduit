@@ -94,7 +94,7 @@ CMS login.
 ### Run in dev
 
 ```sh
-docker compose -f infra/docker-compose.yml up -d mosquitto   # if running the broker here
+docker compose up -d mosquitto                              # if running the broker here
 corepack pnpm dev                                            # all apps via Turborepo
 # or individually:
 corepack pnpm --filter @conduit/bridge dev   # expect: "connected; subscribing to heartbeats"
@@ -124,24 +124,31 @@ corepack pnpm build
 
 ## Production deployment (Docker Compose)
 
-Everything except Appwrite runs from [infra/docker-compose.yml](infra/docker-compose.yml).
-Create a `.env` (Compose reads this; `cp .env.local .env`), then build + run:
+Everything except Appwrite runs from the repo-root [docker-compose.yml](docker-compose.yml).
+On the server, clone the repo (first time) or pull the latest (updates), create a
+`.env`, then build + run:
 
 ```sh
-cd infra
-docker compose --env-file ../.env up -d --build
+# First time:
+git clone <repo-url> conduit && cd conduit
+# Updating an existing checkout:
+git pull
+
+cp .env.example .env     # fill in Appwrite endpoint/ids + the two API keys
+docker compose up -d --build   # root .env is auto-discovered — no --env-file
+make ca                  # extract Caddy's CA root (conduit-ca.crt) for devices
 ```
 
 Brings up **cms** + **player** (Next standalone images), **bridge**, **mosquitto**,
 **go2rtc**, and **caddy** (internal-CA TLS for `conduit.local` / `player.conduit.local`).
-`NEXT_PUBLIC_*` are inlined at image build time and wired as Compose build args from
-the same `.env`.
+Stable `conduit.local` URLs and internal service URLs default inside the Compose file,
+so `.env` only carries the Appwrite coordinates + API keys. `NEXT_PUBLIC_*` are inlined
+at image build time and wired as Compose build args.
 
 - **mDNS:** set the server hostname to `conduit` (Avahi answers `conduit.local`) and run
   [infra/mdns-aliases.sh](infra/mdns-aliases.sh) for `player.conduit.local`.
-- **TLS trust:** export Caddy's internal CA root
-  (`/data/caddy/pki/authorities/local/root.crt`); trust it on operator machines + bake
-  it into the Pi image.
+- **TLS trust:** `make ca` writes Caddy's internal CA root to `conduit-ca.crt`; trust it
+  on operator machines + bake it into the Pi image.
 - **Remote access:** install Tailscale on the server and every Pi.
 
 ## Device image (Raspberry Pi)
