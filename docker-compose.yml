@@ -77,6 +77,12 @@ services:
         NEXT_PUBLIC_PLAYER_VERSION: ${NEXT_PUBLIC_PLAYER_VERSION:-0.0.0}
         NEXT_PUBLIC_OPENWEATHER_API_KEY: ${NEXT_PUBLIC_OPENWEATHER_API_KEY:-}
     restart: unless-stopped
+    environment:
+      # The player's server routes run here (not on the device), so they hold the
+      # full API key — the device's scoped PLAYER_API_KEY is separate.
+      APPWRITE_ENDPOINT: ${APPWRITE_ENDPOINT}
+      APPWRITE_PROJECT_ID: ${APPWRITE_PROJECT_ID}
+      APPWRITE_API_KEY: ${APPWRITE_API_KEY}
     expose:
       - "3001"
     networks: [conduit]
