@@ -17,11 +17,11 @@ async function resolveSource(slug: string): Promise<string | null> {
   const hit = cache.get(slug);
   if (hit && hit.exp > Date.now()) return hit.url;
   const { databases } = createAdminClient();
-  const res = await databases.listDocuments(DATABASE_ID, COLLECTIONS.cameras, [
-    Query.equal("slug", slug),
-    Query.limit(1),
-  ]);
-  const doc = res.documents[0] as { source_url?: string } | undefined;
+  // List + match in code so we don't depend on a `slug` index existing.
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTIONS.cameras, [Query.limit(100)]);
+  const doc = res.documents.find((d) => (d as { slug?: string }).slug === slug) as
+    | { source_url?: string }
+    | undefined;
   const url = doc?.source_url || null;
   if (url) cache.set(slug, { url, exp: Date.now() + TTL_MS });
   return url;
