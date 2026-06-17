@@ -51,9 +51,15 @@ export async function listCameras(): Promise<Camera[]> {
 
 export async function createCamera(name: string): Promise<Camera> {
   const { databases } = createBrowserClient();
+  // Ensure a unique slug so multiple cameras (all named "New camera" by default)
+  // don't collide on their playback path.
+  const used = new Set((await listCameras()).map((c) => c.slug));
+  const base = slugify(name);
+  let slug = base;
+  for (let i = 2; used.has(slug); i++) slug = `${base}-${i}`;
   const doc = await databases.createDocument(PUBLIC_DATABASE_ID, COLLECTIONS.cameras, ID.unique(), {
     name,
-    slug: slugify(name),
+    slug,
     source_url: "",
   });
   return toCamera(doc as unknown as Record<string, unknown>);

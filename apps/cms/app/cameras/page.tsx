@@ -37,8 +37,13 @@ export default function CamerasPage() {
   }
 
   async function onCreate() {
-    await createCamera("New camera");
-    await refresh();
+    setNote(null);
+    try {
+      await createCamera("New camera");
+      await refresh();
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Could not add camera");
+    }
   }
 
   async function onSave(c: Camera) {
