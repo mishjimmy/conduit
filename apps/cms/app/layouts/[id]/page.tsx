@@ -24,6 +24,19 @@ const inputCls = "w-full rounded-md border border-input bg-background px-2 py-1 
 const labelCls = "text-xs text-muted-foreground";
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
+/** Kiosk-safe font families (each carries a generic fallback). */
+const FONT_OPTIONS = [
+  { label: "Sans-serif", value: "sans-serif" },
+  { label: "Serif", value: "serif" },
+  { label: "Monospace", value: "monospace" },
+  { label: "System UI", value: "system-ui" },
+  { label: "Arial", value: "Arial, sans-serif" },
+  { label: "Verdana", value: "Verdana, sans-serif" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Times New Roman", value: "'Times New Roman', serif" },
+  { label: "Courier New", value: "'Courier New', monospace" },
+];
+
 type Backdrop = Extract<Layer, { type: "backdrop" }>;
 type OpenPicker = (apply: (mediaId: string) => void) => void;
 
@@ -445,6 +458,29 @@ function TypeFields({
             <input type="checkbox" checked={layer.showDate} onChange={(e) => onPatch({ showDate: e.target.checked })} />
             Show date
           </label>
+          <div className="block">
+            <span className={labelCls}>Color</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                className="size-8 cursor-pointer rounded border border-input bg-background"
+                value={layer.color}
+                onChange={(e) => onPatch({ color: e.target.value })}
+              />
+              <input className={inputCls} value={layer.color} onChange={(e) => onPatch({ color: e.target.value })} />
+            </div>
+          </div>
+          <label className="block">
+            <span className={labelCls}>Size (% of height)</span>
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              className={inputCls}
+              value={layer.fontSize}
+              onChange={(e) => onPatch({ fontSize: Math.max(1, Number(e.target.value) || 1) })}
+            />
+          </label>
         </div>
       );
     case "weather":
@@ -516,6 +552,82 @@ function TypeFields({
             placeholder="https://…/stream.m3u8"
             onChange={(e) => onPatch({ hlsUrl: e.target.value })}
           />
+        </div>
+      );
+    case "label":
+      return (
+        <div className="space-y-2">
+          <label className="block">
+            <span className={labelCls}>Text</span>
+            <textarea
+              className={inputCls}
+              rows={2}
+              value={layer.text}
+              onChange={(e) => onPatch({ text: e.target.value })}
+            />
+          </label>
+          <div className="block">
+            <span className={labelCls}>Color</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                className="size-8 cursor-pointer rounded border border-input bg-background"
+                value={layer.color}
+                onChange={(e) => onPatch({ color: e.target.value })}
+              />
+              <input className={inputCls} value={layer.color} onChange={(e) => onPatch({ color: e.target.value })} />
+            </div>
+          </div>
+          <label className="block">
+            <span className={labelCls}>Size (% of height)</span>
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              className={inputCls}
+              value={layer.fontSize}
+              onChange={(e) => onPatch({ fontSize: Math.max(1, Number(e.target.value) || 1) })}
+            />
+          </label>
+          <label className="block">
+            <span className={labelCls}>Font</span>
+            <select
+              className={inputCls}
+              value={layer.fontFamily}
+              onChange={(e) => onPatch({ fontFamily: e.target.value })}
+            >
+              {FONT_OPTIONS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className={labelCls}>Weight</span>
+              <select
+                className={inputCls}
+                value={layer.fontWeight}
+                onChange={(e) => onPatch({ fontWeight: e.target.value })}
+              >
+                <option value="normal">normal</option>
+                <option value="bold">bold</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className={labelCls}>Align</span>
+              <select
+                className={inputCls}
+                value={layer.align}
+                onChange={(e) => onPatch({ align: e.target.value })}
+              >
+                <option value="left">left</option>
+                <option value="center">center</option>
+                <option value="right">right</option>
+              </select>
+            </label>
+          </div>
         </div>
       );
     case "slideshow":

@@ -48,6 +48,13 @@ const PATHS: Record<LayerType, ReactNode> = {
       <path d="m9 10-2 2 2 2M15 10l2 2-2 2" />
     </>
   ),
+  label: (
+    <>
+      <path d="M4 7V5h16v2" />
+      <path d="M12 5v14" />
+      <path d="M9 19h6" />
+    </>
+  ),
 };
 
 export function LayerIcon({ type, className }: { type: LayerType; className?: string }) {

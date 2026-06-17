@@ -58,12 +58,28 @@ export const clockLayerSchema = z.object({
   type: z.literal("clock"),
   format: z.enum(["12h", "24h"]).default("24h"),
   showDate: z.boolean().default(true),
+  color: z.string().default("#ffffff"),
+  /** Time text size, in % of the canvas height (cqh). Date scales with it. */
+  fontSize: z.number().positive().default(12),
 });
 
 export const embedLayerSchema = z.object({
   ...baseLayer,
   type: z.literal("embed"),
   url: z.string(),
+});
+
+/** Free text with arbitrary size, color, and font. */
+export const labelLayerSchema = z.object({
+  ...baseLayer,
+  type: z.literal("label"),
+  text: z.string().default("Label"),
+  color: z.string().default("#ffffff"),
+  /** Text size, in % of the canvas height (cqh). */
+  fontSize: z.number().positive().default(8),
+  fontFamily: z.string().default("sans-serif"),
+  fontWeight: z.enum(["normal", "bold"]).default("bold"),
+  align: z.enum(["left", "center", "right"]).default("center"),
 });
 
 /**
@@ -89,6 +105,7 @@ export const layerSchema = z.discriminatedUnion("type", [
   weatherLayerSchema,
   clockLayerSchema,
   embedLayerSchema,
+  labelLayerSchema,
 ]);
 export type Layer = z.infer<typeof layerSchema>;
 export type LayerType = Layer["type"];

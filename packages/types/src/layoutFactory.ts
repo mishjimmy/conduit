@@ -43,9 +43,20 @@ export function createLayer(type: LayerType, zIndex: number): Layer {
     case "weather":
       return { ...base, type, location: "London", units: "metric" };
     case "clock":
-      return { ...base, type, format: "24h", showDate: true };
+      return { ...base, type, format: "24h", showDate: true, color: "#ffffff", fontSize: 12 };
     case "embed":
       return { ...base, type, url: "" };
+    case "label":
+      return {
+        ...base,
+        type,
+        text: "Label",
+        color: "#ffffff",
+        fontSize: 8,
+        fontFamily: "sans-serif",
+        fontWeight: "bold",
+        align: "center",
+      };
   }
 }
 
@@ -82,4 +93,5 @@ export const LAYER_TYPES: LayerType[] = [
   "weather",
   "clock",
   "embed",
+  "label",
 ];

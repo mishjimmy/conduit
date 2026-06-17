@@ -50,9 +50,39 @@ function ClockLayer({ layer }: { layer: Extract<Layer, { type: "clock" }> }) {
   });
 
   return (
-    <div style={{ ...fill, ...center, flexDirection: "column", color: "#fff" }}>
-      <div style={{ fontSize: "12cqh", fontWeight: 700, lineHeight: 1.1 }}>{time}</div>
-      {layer.showDate && <div style={{ fontSize: "4cqh", opacity: 0.8 }}>{date}</div>}
+    <div style={{ ...fill, ...center, flexDirection: "column", color: layer.color }}>
+      <div style={{ fontSize: `${layer.fontSize}cqh`, fontWeight: 700, lineHeight: 1.1 }}>{time}</div>
+      {layer.showDate && (
+        <div style={{ fontSize: `${layer.fontSize / 3}cqh`, opacity: 0.8 }}>{date}</div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- label (free text) ---------------- */
+
+function LabelLayer({ layer }: { layer: Extract<Layer, { type: "label" }> }) {
+  const justify =
+    layer.align === "left" ? "flex-start" : layer.align === "right" ? "flex-end" : "center";
+  return (
+    <div
+      style={{
+        ...fill,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: justify,
+        textAlign: layer.align,
+        color: layer.color,
+        fontSize: `${layer.fontSize}cqh`,
+        fontFamily: layer.fontFamily,
+        fontWeight: layer.fontWeight,
+        lineHeight: 1.15,
+        padding: "0.5cqh 1cqw",
+        whiteSpace: "pre-wrap",
+        overflowWrap: "anywhere",
+      }}
+    >
+      {layer.text}
     </div>
   );
 }
@@ -316,6 +346,8 @@ export function LayerView({
       return <BackdropLayer layer={layer} resolve={resolve} />;
     case "clock":
       return <ClockLayer layer={layer} />;
+    case "label":
+      return <LabelLayer layer={layer} />;
     case "weather":
       return <WeatherLayer layer={layer} />;
     case "slideshow":
