@@ -15,6 +15,4 @@ export interface PlayerManifest {
   layouts: Record<string, { name: string; layers: Layer[] }>;
   /** Resolved media referenced by the layouts, keyed by the layer's mediaId. */
   media: Record<string, MediaRef>;
-  /** Camera stream id -> HLS URL (go2rtc), for camera-grid layers. */
-  streams: Record<string, string>;
 }

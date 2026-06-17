@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { layerSchema, type Layer, type LayerType } from "./layout";
 
 const newId = () =>
@@ -8,16 +7,33 @@ const newId = () =>
 
 const DEFAULT_POSITION = { x: 10, y: 10, width: 30, height: 30 };
 
+/** Backdrop covers the whole stage and renders below everything else. */
+export const BACKDROP_POSITION = { x: 0, y: 0, width: 100, height: 100 };
+export const BACKDROP_Z = 0;
+
+/** A blank black backdrop — the layout's background layer. */
+export function createBackdrop(): Extract<Layer, { type: "backdrop" }> {
+  return {
+    id: newId(),
+    position: { ...BACKDROP_POSITION },
+    zIndex: BACKDROP_Z,
+    type: "backdrop",
+    color: "#000000",
+    mediaId: "",
+    fit: "cover",
+  };
+}
+
 /** A sensible blank layer of the given type for the builder's "add layer". */
 export function createLayer(type: LayerType, zIndex: number): Layer {
   const base = { id: newId(), position: { ...DEFAULT_POSITION }, zIndex };
   switch (type) {
+    case "backdrop":
+      return createBackdrop();
     case "slideshow":
       return { ...base, type, items: [], crossfadeSeconds: 0.5 };
     case "video":
       return { ...base, type, hlsUrl: "" };
-    case "camera-grid":
-      return { ...base, type, streamIds: [] };
     case "pip":
       return { ...base, type, hlsUrl: "", streamId: "", pipCorner: "BR" };
     case "graphic":
@@ -33,8 +49,6 @@ export function createLayer(type: LayerType, zIndex: number): Layer {
   }
 }
 
-const layersArraySchema = z.array(layerSchema);
-
 /** Parse the `layers` column (stored as JSON text) into a typed array. */
 export function parseLayers(raw: unknown): Layer[] {
   let value = raw;
@@ -45,8 +59,13 @@ export function parseLayers(raw: unknown): Layer[] {
       return [];
     }
   }
-  const result = layersArraySchema.safeParse(value);
-  return result.success ? result.data : [];
+  if (!Array.isArray(value)) return [];
+  // Parse per-element so one unknown/removed layer type (e.g. a legacy
+  // camera-grid) is dropped instead of discarding the whole layout.
+  return value.flatMap((item) => {
+    const result = layerSchema.safeParse(item);
+    return result.success ? [result.data] : [];
+  });
 }
 
 /** Serialize a layer array for storage in the `layers` text column. */
@@ -57,7 +76,6 @@ export function serializeLayers(layers: Layer[]): string {
 export const LAYER_TYPES: LayerType[] = [
   "slideshow",
   "video",
-  "camera-grid",
   "pip",
   "graphic",
   "message",

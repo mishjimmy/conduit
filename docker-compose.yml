@@ -30,15 +30,6 @@ services:
       - mosquitto-data:/mosquitto/data
     networks: [conduit]
 
-  go2rtc:
-    image: alexxit/go2rtc:latest
-    restart: unless-stopped
-    ports:
-      - "1984:1984" # API / HLS
-    volumes:
-      - ./infra/go2rtc.yml:/config/go2rtc.yaml
-    networks: [conduit]
-
   cms:
     build:
       context: .
@@ -50,7 +41,6 @@ services:
         NEXT_PUBLIC_APPWRITE_DATABASE_ID: ${APPWRITE_DATABASE_ID}
         # Stable conduit.local public URLs — same on every network.
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://conduit.local}
-        NEXT_PUBLIC_GO2RTC_URL: ${NEXT_PUBLIC_GO2RTC_URL:-https://conduit.local/go2rtc}
         NEXT_PUBLIC_NOVNC_URL_TEMPLATE: ${NEXT_PUBLIC_NOVNC_URL_TEMPLATE:-http://{host}:6080/vnc.html?autoconnect=1&resize=scale}
     restart: unless-stopped
     environment:
@@ -59,7 +49,6 @@ services:
       APPWRITE_DATABASE_ID: ${APPWRITE_DATABASE_ID}
       APPWRITE_API_KEY: ${APPWRITE_API_KEY}
       MQTT_URL: ${MQTT_URL:-mqtt://mosquitto:1883}
-      GO2RTC_API_URL: ${GO2RTC_API_URL:-http://go2rtc:1984}
     expose:
       - "3000"
     networks: [conduit]

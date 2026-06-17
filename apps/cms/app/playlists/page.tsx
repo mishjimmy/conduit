@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, Card, CardContent, CardHeader, CardTitle } from "@conduit/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, buttonVariants, cn } from "@conduit/ui";
 import { createBrowserClient } from "@/lib/appwrite-browser";
 import {
   createPlaylist,
@@ -11,11 +11,13 @@ import {
   listPlaylists,
   type PlaylistDoc,
 } from "@/lib/playlists";
+import { PromptDialog } from "@/app/components/PromptDialog";
 
 export default function PlaylistsPage() {
   const router = useRouter();
   const [playlists, setPlaylists] = useState<PlaylistDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
 
   async function refresh() {
     setPlaylists(await listPlaylists());
@@ -30,10 +32,8 @@ export default function PlaylistsPage() {
       .catch(() => router.push("/login"));
   }, [router]);
 
-  async function onCreate() {
-    const name = window.prompt("Playlist name", "New playlist");
-    if (!name) return;
-    const pl = await createPlaylist(name.trim());
+  async function onCreate(name: string) {
+    const pl = await createPlaylist(name);
     router.push(`/playlists/${pl.id}`);
   }
 
@@ -44,18 +44,10 @@ export default function PlaylistsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl p-6">
+    <main className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Playlists</h1>
-        <div className="flex items-center gap-4">
-          <Link className="text-sm text-primary underline" href="/screens">
-            Screens
-          </Link>
-          <Link className="text-sm text-primary underline" href="/layouts">
-            Layouts
-          </Link>
-          <Button onClick={onCreate}>New playlist</Button>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Playlists</h1>
+        <Button onClick={() => setCreateOpen(true)}>New playlist</Button>
       </div>
 
       {loading ? (
@@ -74,18 +66,33 @@ export default function PlaylistsPage() {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center gap-4 text-sm">
-                <Link className="text-primary underline" href={`/playlists/${p.id}`}>
+              <CardContent className="flex items-center gap-2">
+                <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/playlists/${p.id}`}>
                   Edit
                 </Link>
-                <button className="text-destructive underline" onClick={() => onDelete(p.id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => onDelete(p.id)}
+                >
                   Delete
-                </button>
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={createOpen}
+        title="New playlist"
+        label="Playlist name"
+        defaultValue="New playlist"
+        submitLabel="Create"
+        onSubmit={onCreate}
+        onClose={() => setCreateOpen(false)}
+      />
     </main>
   );
 }

@@ -14,7 +14,8 @@ primary player↔CMS channel and **HTTP polling** as a graceful fallback.
 - **Screens & pairing** — devices self-register by MAC and show a QR + human code; an
   operator pairs them in the CMS. Human-readable screen ids (`brave-otter`).
 - **Layouts** — percentage-positioned zones on a 1920×1080 canvas: slideshow, video,
-  camera-grid, pip, graphic, message, weather, clock, embed. Live builder + preview.
+  pip, graphic, message, weather, clock, embed, plus a color/image background. A visual
+  drag-and-drop builder (move/resize, layer reordering) + live preview.
 - **Playlists** — ordered layouts with per-entry duration and transitions (hard cut /
   fade-to-black / crossfade); the player runs them **locally** and **offline-first**.
 - **Media library** — upload to Appwrite Storage, browse/assign; player pre-fetches +
@@ -22,8 +23,8 @@ primary player↔CMS channel and **HTTP polling** as a graceful fallback.
 - **Messages** — push text overlays per-screen / per-group / broadcast, with schedule,
   auto-dismiss, and a full-screen **emergency broadcast**.
 - **Screen groups** — bulk playlist assignment and group-targeted messaging.
-- **Video** — go2rtc RTSP→HLS, FFmpeg `xstack`/overlay compositing; player plays HLS
-  via hls.js.
+- **Video** — point a video/pip layer at an HLS (`.m3u8`) URL; the player plays it via
+  hls.js. (RTSP isn't browser-playable — expose it as HLS upstream.)
 - **Fleet ops** — heartbeats/online status, auto-update (boot + push), noVNC remote
   screen, and a screenshot command.
 
@@ -35,7 +36,7 @@ apps/player      Next.js 16 fullscreen kiosk display (port 3001)
 packages/types   Shared zod schemas + MQTT topic/Appwrite channel helpers
 packages/ui      Shared Tailwind v4 theme, components, and the LayoutRenderer
 services/bridge  MQTT → Appwrite worker (ingests heartbeats → last_seen)
-infra            docker-compose, Mosquitto, Caddy, go2rtc configs
+infra            Mosquitto, Caddy, and mDNS configs
 pi-image         CustomPiOS config, scripts, and systemd units for the kiosk
 appwrite.json    Appwrite database/collections/buckets (deploy via Appwrite CLI)
 ```
@@ -79,9 +80,21 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```sh
 appwrite client --endpoint https://<appwrite-host>/v1 --project-id <id> --key <key>
 cp appwrite.json appwrite.config.json        # PowerShell: Copy-Item appwrite.json appwrite.config.json -Force
-appwrite push collections --all --force
-appwrite push buckets --all --force
+appwrite push collections      # NO --force on a populated DB (see below)
+appwrite push buckets
 ```
+
+> ⚠️ **Never use `--force` against an Appwrite project that already has data.** `--force`
+> applies schema changes without prompting, and when the CLI thinks an attribute differs
+> it **deletes and recreates the column — wiping that field on every existing document**
+> (layouts/playlists come back blank, names show as "untitled"). Run **without** `--force`
+> so the CLI prompts before any destructive recreation; only the first deploy into an
+> empty project is safe to `--force`.
+>
+> Every **string** attribute in `appwrite.json` must declare **`"encrypt": false`**. The
+> server stores an `encrypt` flag on string columns; if appwrite.json omits it, the CLI
+> sees a perpetual diff and recreates (wipes) every string column on each push. Keep the
+> CLI version close to the server version — a stale CLI is what surfaced this.
 
 In the Appwrite console also: add a **Web platform** for `localhost` (so the CMS
 browser SDK/Realtime aren't CORS-blocked), and create an **email/password user** for
@@ -97,8 +110,7 @@ CMS login.
 docker compose up -d mosquitto                              # if running the broker here
 corepack pnpm dev                                            # all apps via Turborepo
 # or individually:
-corepack pnpm --filter @conduit/bridge dev   # expect: "connected; subscribing to heartbeats"
-corepack pnpm --filter @conduit/player dev   # http://localhost:3001
+st go all corepack pnpm --filter @conduit/player dev   # http://localhost:3001
 corepack pnpm --filter @conduit/cms dev      # http://localhost:3000
 ```
 
@@ -111,8 +123,8 @@ corepack pnpm --filter @conduit/cms dev      # http://localhost:3000
    (~1s over MQTT, ~30s via polling fallback). The screens list shows it **online**.
 4. **Layouts** → build a layout (clock, media, etc.). **Playlists** → add layouts with
    transitions. **Screens** → assign the playlist → the player rotates it.
-5. **Messages** → send/broadcast an overlay. **Groups** → bulk-assign. **Streams** →
-   add cameras + download `go2rtc.yml`. **Screen detail** → reload/screenshot/noVNC.
+5. **Messages** → send/broadcast an overlay. **Groups** → bulk-assign. **Screen detail**
+   → reload/screenshot/noVNC.
 
 ## Verification commands
 
@@ -139,15 +151,14 @@ docker compose up -d --build   # root .env is auto-discovered — no --env-file
 make ca                  # extract Caddy's CA root (conduit-ca.crt) for devices
 ```
 
-Brings up **cms** + **player** (Next standalone images), **bridge**, **mosquitto**,
-**go2rtc**, and **caddy** (internal-CA TLS for `conduit.local` / `conduitplayer.local`).
+Brings up **cms** + **player** (Next standalone images), **bridge**, **mosquitto**, and
+**caddy** (internal-CA TLS for `conduit.local` / `conduitplayer.local`).
 Stable `conduit.local` URLs and internal service URLs default inside the Compose file,
 so `.env` only carries the Appwrite coordinates + API keys. `NEXT_PUBLIC_*` are inlined
 at image build time and wired as Compose build args.
 
 - **mDNS:** set the server hostname to `conduit` (Avahi answers `conduit.local`), then
-  publish the `conduitplayer.local` / `conduitmqtt.local` aliases. All single-label, so
-  clients resolve them over mDNS with no `/etc/hosts` pinning. Run once to test:
+  publish the `player.`/`mqtt.conduit.local` aliases. Run once to test:
 
   ```sh
   sudo apt install -y avahi-daemon avahi-utils
@@ -161,6 +172,7 @@ at image build time and wired as Compose build args.
   sudo systemctl daemon-reload
   sudo systemctl enable --now conduit-mdns.service
   ```
+
 - **TLS trust:** `make ca` writes Caddy's internal CA root to `conduit-ca.crt`; trust it
   on operator machines + bake it into the Pi image.
 - **Remote access:** install Tailscale on the server and every Pi.

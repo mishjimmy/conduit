@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@conduit/ui";
 import { COLLECTIONS, MESSAGE_STYLES, type MessageStyle, type Screen } from "@conduit/types";
 import { createBrowserClient, PUBLIC_DATABASE_ID } from "@/lib/appwrite-browser";
@@ -122,17 +121,9 @@ export default function MessagesPage() {
   const activeScreens = screens.filter((s) => s.status === "active");
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Messages</h1>
-        <div className="flex items-center gap-4 text-sm">
-          <Link className="text-primary underline" href="/screens">
-            Screens
-          </Link>
-          <Link className="text-primary underline" href="/playlists">
-            Playlists
-          </Link>
-        </div>
+    <main className="mx-auto max-w-5xl p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
       </div>
 
       <Card className="mb-6">

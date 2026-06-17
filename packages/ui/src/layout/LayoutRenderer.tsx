@@ -3,12 +3,11 @@
 import * as React from "react";
 import type { Layer } from "@conduit/types";
 import { LayerView, type ActiveMessage } from "./layers";
-import type { MediaResolver, StreamResolver } from "./media";
+import type { MediaResolver } from "./media";
 
 export interface LayoutRendererProps {
   layers: Layer[];
   resolveMediaUrl?: MediaResolver;
-  resolveStreamUrl?: StreamResolver;
   /** Active message rendered on message-type layers (null when idle). */
   message?: ActiveMessage | null;
   /** Draw a dashed outline + label around each zone (builder aid). */
@@ -25,7 +24,6 @@ export interface LayoutRendererProps {
 export function LayoutRenderer({
   layers,
   resolveMediaUrl,
-  resolveStreamUrl,
   message,
   showZoneOutlines,
 }: LayoutRendererProps) {
@@ -58,12 +56,7 @@ export function LayoutRenderer({
             outline: showZoneOutlines ? "1px dashed rgba(255,255,255,0.4)" : undefined,
           }}
         >
-          <LayerView
-            layer={layer}
-            resolveMediaUrl={resolveMediaUrl}
-            resolveStreamUrl={resolveStreamUrl}
-            message={message}
-          />
+          <LayerView layer={layer} resolveMediaUrl={resolveMediaUrl} message={message} />
           {showZoneOutlines && (
             <span
               style={{

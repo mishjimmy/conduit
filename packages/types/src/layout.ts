@@ -26,13 +26,6 @@ export const videoLayerSchema = z.object({
   hlsUrl: z.string(),
 });
 
-export const cameraGridLayerSchema = z.object({
-  ...baseLayer,
-  type: z.literal("camera-grid"),
-  /** Up to 4 camera stream ids; the player renders them as a client-side grid. */
-  streamIds: z.array(z.string()).default([]),
-});
-
 export const pipPositionSchema = z.enum(["TR", "TL", "BR", "BL"]);
 export const pipLayerSchema = z.object({
   ...baseLayer,
@@ -73,10 +66,23 @@ export const embedLayerSchema = z.object({
   url: z.string(),
 });
 
+/**
+ * Full-canvas background. Always the bottom layer; edited via the builder's
+ * Background panel rather than the layer list. Stored in the same `layers` blob
+ * so it needs no separate DB column.
+ */
+export const backdropLayerSchema = z.object({
+  ...baseLayer,
+  type: z.literal("backdrop"),
+  color: z.string().default("#000000"),
+  mediaId: z.string().default(""),
+  fit: z.enum(["cover", "contain", "fill"]).default("cover"),
+});
+
 export const layerSchema = z.discriminatedUnion("type", [
+  backdropLayerSchema,
   slideshowLayerSchema,
   videoLayerSchema,
-  cameraGridLayerSchema,
   pipLayerSchema,
   graphicLayerSchema,
   messageLayerSchema,

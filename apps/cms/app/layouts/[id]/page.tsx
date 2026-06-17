@@ -2,46 +2,65 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button, LayoutRenderer, type MediaResolver } from "@conduit/ui";
-import { createLayer, LAYER_TYPES, type Layer, type LayerType } from "@conduit/types";
+import { Button, buttonVariants, cn, type MediaResolver } from "@conduit/ui";
+import {
+  BACKDROP_POSITION,
+  createBackdrop,
+  createLayer,
+  LAYER_TYPES,
+  type Layer,
+  type LayerType,
+  type Position,
+} from "@conduit/types";
 import { createBrowserClient } from "@/lib/appwrite-browser";
 import { getLayout, saveLayout } from "@/lib/layouts";
 import { listMedia, type MediaDoc } from "@/lib/media";
-import { listStreams, type StreamDoc } from "@/lib/streams";
+import { cameraPlaybackUrl, listCameras, type Camera } from "@/lib/cameras";
 import { MediaPicker } from "@/app/components/MediaPicker";
+import { EditorCanvas } from "./EditorCanvas";
+import { LayerIcon } from "./icons";
 
 const inputCls = "w-full rounded-md border border-input bg-background px-2 py-1 text-sm";
 const labelCls = "text-xs text-muted-foreground";
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
+type Backdrop = Extract<Layer, { type: "backdrop" }>;
 type OpenPicker = (apply: (mediaId: string) => void) => void;
 
 export default function LayoutBuilderPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [name, setName] = useState("");
-  const [layers, setLayers] = useState<Layer[]>([]);
+  const [backdrop, setBackdrop] = useState<Backdrop | null>(null);
+  const [content, setContent] = useState<Layer[]>([]); // bottom→top, no backdrop
   const [media, setMedia] = useState<MediaDoc[]>([]);
-  const [streams, setStreams] = useState<StreamDoc[]>([]);
+  const [cameras, setCameras] = useState<Camera[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "saving" | "saved">("loading");
   const [pickerOpen, setPickerOpen] = useState(false);
   const pendingApply = useRef<((mediaId: string) => void) | null>(null);
+  const dragId = useRef<string | null>(null);
 
   useEffect(() => {
     const { account } = createBrowserClient();
     account
       .get()
       .then(async () => {
-        const [layout, mediaList, streamList] = await Promise.all([
+        const [layout, mediaList, cameraList] = await Promise.all([
           getLayout(id),
           listMedia(),
-          listStreams(),
+          listCameras(),
         ]);
+        const bd = layout.layers.find((l): l is Backdrop => l.type === "backdrop");
+        const rest = layout.layers
+          .filter((l) => l.type !== "backdrop")
+          .sort((a, b) => a.zIndex - b.zIndex);
         setName(layout.name);
-        setLayers(layout.layers);
+        setBackdrop(bd ?? createBackdrop());
+        setContent(rest);
+        setSelectedId(rest[0]?.id ?? null);
         setMedia(mediaList);
-        setStreams(streamList);
-        setSelectedId(layout.layers[0]?.id ?? null);
+        setCameras(cameraList);
         setStatus("ready");
       })
       .catch(() => router.push("/login"));
@@ -53,45 +72,75 @@ export default function LayoutBuilderPage() {
       map.get(mediaId) ?? (/^(https?:)?\/\//.test(mediaId) || mediaId.startsWith("/") ? mediaId : undefined);
   }, [media]);
 
-  const resolveStreamUrl = useMemo(() => {
-    const map = new Map(streams.map((s) => [s.id, s.hlsUrl]));
-    return (id: string) => map.get(id);
-  }, [streams]);
+  /** Content with derived z-index (array order = stacking, bottom→top). */
+  const contentWithZ = useMemo(() => content.map((l, i) => ({ ...l, zIndex: i + 1 })), [content]);
+
+  /** Everything the renderer draws: backdrop at the bottom, then content. */
+  const renderLayers = useMemo<Layer[]>(() => {
+    const out: Layer[] = [];
+    if (backdrop) out.push({ ...backdrop, zIndex: 0, position: { ...BACKDROP_POSITION } });
+    return out.concat(contentWithZ);
+  }, [backdrop, contentWithZ]);
+
+  const selected = content.find((l) => l.id === selectedId) ?? null;
 
   const openPicker: OpenPicker = (apply) => {
     pendingApply.current = apply;
     setPickerOpen(true);
   };
 
-  const selected = layers.find((l) => l.id === selectedId) ?? null;
+  function touch() {
+    setStatus("ready");
+  }
 
   function patchLayer(layerId: string, patch: Record<string, unknown>) {
-    setLayers((ls) => ls.map((l) => (l.id === layerId ? ({ ...l, ...patch } as Layer) : l)));
-    setStatus("ready");
+    setContent((ls) => ls.map((l) => (l.id === layerId ? ({ ...l, ...patch } as Layer) : l)));
+    touch();
   }
-  function patchPosition(layerId: string, axis: "x" | "y" | "width" | "height", value: number) {
-    setLayers((ls) =>
-      ls.map((l) =>
-        l.id === layerId ? ({ ...l, position: { ...l.position, [axis]: value } } as Layer) : l,
-      ),
-    );
-    setStatus("ready");
+  function changePosition(layerId: string, position: Position) {
+    setContent((ls) => ls.map((l) => (l.id === layerId ? ({ ...l, position } as Layer) : l)));
+    touch();
   }
-  function addLayer(type: LayerType) {
-    const nextZ = layers.reduce((max, l) => Math.max(max, l.zIndex), 0) + 1;
-    const layer = createLayer(type, nextZ);
-    setLayers((ls) => [...ls, layer]);
+  function addLayer(type: LayerType, center?: { x: number; y: number }) {
+    const layer = createLayer(type, content.length + 1);
+    if (center) {
+      const { width: w, height: h } = layer.position;
+      layer.position = {
+        ...layer.position,
+        x: clamp(center.x - w / 2, 0, 100 - w),
+        y: clamp(center.y - h / 2, 0, 100 - h),
+      };
+    }
+    setContent((ls) => [...ls, layer]);
     setSelectedId(layer.id);
-    setStatus("ready");
+    touch();
   }
   function removeLayer(layerId: string) {
-    setLayers((ls) => ls.filter((l) => l.id !== layerId));
+    setContent((ls) => ls.filter((l) => l.id !== layerId));
     if (selectedId === layerId) setSelectedId(null);
-    setStatus("ready");
+    touch();
+  }
+  function reorder(draggedId: string, targetId: string) {
+    if (draggedId === targetId) return;
+    setContent((ls) => {
+      const from = ls.findIndex((l) => l.id === draggedId);
+      const to = ls.findIndex((l) => l.id === targetId);
+      if (from < 0 || to < 0) return ls;
+      const next = [...ls];
+      const [moved] = next.splice(from, 1);
+      if (!moved) return ls;
+      next.splice(to, 0, moved);
+      return next;
+    });
+    touch();
+  }
+  function updateBackdrop(patch: Partial<Backdrop>) {
+    setBackdrop((b) => (b ? { ...b, ...patch } : b));
+    touch();
   }
   async function save() {
     setStatus("saving");
-    await saveLayout(id, name, layers);
+    await saveLayout(id, name, renderLayers);
     setStatus("saved");
   }
 
@@ -99,19 +148,25 @@ export default function LayoutBuilderPage() {
     return <main className="p-6 text-muted-foreground">Loading…</main>;
   }
 
+  // Layer panel lists top layer first (reverse of stacking order).
+  const panelLayers = [...contentWithZ].reverse();
+
   return (
     <main className="flex h-screen flex-col">
       <header className="flex items-center gap-3 border-b border-border p-3">
-        <button className="text-sm text-primary underline" onClick={() => router.push("/layouts")}>
+        <Button variant="outline" size="sm" onClick={() => router.push("/layouts")}>
           ← Layouts
-        </button>
+        </Button>
         <input
           className="max-w-xs flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            touch();
+          }}
         />
         <a
-          className="text-sm text-primary underline"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           href={`http://localhost:3001/preview?layoutId=${id}`}
           target="_blank"
           rel="noreferrer"
@@ -129,66 +184,106 @@ export default function LayoutBuilderPage() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-80 shrink-0 overflow-y-auto border-r border-border p-3">
-          <div className="mb-3">
-            <label className={labelCls}>Add layer</label>
-            <select
-              className={inputCls}
-              value=""
-              onChange={(e) => {
-                if (e.target.value) addLayer(e.target.value as LayerType);
-                e.target.value = "";
-              }}
-            >
-              <option value="">+ choose type…</option>
+        {/* left: palette + background */}
+        <aside className="w-60 shrink-0 space-y-4 overflow-y-auto border-r border-border p-3">
+          <div>
+            <h3 className="mb-2 text-sm font-medium">Add layer</h3>
+            <p className="mb-2 text-xs text-muted-foreground">Drag onto the canvas, or click to add.</p>
+            <div className="grid grid-cols-2 gap-2">
               {LAYER_TYPES.map((t) => (
-                <option key={t} value={t}>
+                <button
+                  key={t}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application/x-layer-type", t);
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
+                  onClick={() => addLayer(t)}
+                  className="flex cursor-grab flex-col items-center gap-1 rounded-md border border-border bg-card px-2 py-2 text-xs capitalize hover:border-primary/50 hover:bg-accent active:cursor-grabbing"
+                >
+                  <LayerIcon type={t} className="size-5 text-muted-foreground" />
                   {t}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
-          <ul className="mb-4 space-y-1">
-            {layers.map((l) => (
-              <li key={l.id}>
-                <button
-                  className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-sm ${
-                    l.id === selectedId ? "bg-accent" : "hover:bg-accent/50"
-                  }`}
-                  onClick={() => setSelectedId(l.id)}
-                >
-                  <span>
-                    {l.type} <span className="text-xs text-muted-foreground">z{l.zIndex}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-            {layers.length === 0 && <li className="text-sm text-muted-foreground">No layers yet.</li>}
-          </ul>
-
-          {selected && (
-            <LayerFields
-              layer={selected}
-              onPatch={(p) => patchLayer(selected.id, p)}
-              onPatchPos={(axis, v) => patchPosition(selected.id, axis, v)}
-              onRemove={() => removeLayer(selected.id)}
+          {backdrop && (
+            <BackgroundPanel
+              backdrop={backdrop}
+              resolveMediaUrl={resolveMediaUrl}
+              onChange={updateBackdrop}
               openPicker={openPicker}
-              streams={streams}
             />
           )}
         </aside>
 
-        <section className="flex min-w-0 flex-1 items-center justify-center bg-neutral-900 p-6">
-          <div className="aspect-video w-full max-w-5xl shadow-lg">
-            <LayoutRenderer
-              layers={layers}
-              showZoneOutlines
-              resolveMediaUrl={resolveMediaUrl}
-              resolveStreamUrl={resolveStreamUrl}
-            />
+        <EditorCanvas
+          renderLayers={renderLayers}
+          content={contentWithZ}
+          selectedId={selectedId}
+          resolveMediaUrl={resolveMediaUrl}
+          onSelect={setSelectedId}
+          onChangePosition={changePosition}
+          onDropNewLayer={addLayer}
+        />
+
+        {/* right: layers panel + inspector */}
+        <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-l border-border">
+          <div className="border-b border-border p-3">
+            <h3 className="mb-2 text-sm font-medium">Layers</h3>
+            <ul className="space-y-1">
+              {panelLayers.map((l) => (
+                <li
+                  key={l.id}
+                  draggable
+                  onDragStart={() => (dragId.current = l.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (dragId.current) reorder(dragId.current, l.id);
+                    dragId.current = null;
+                  }}
+                  onClick={() => setSelectedId(l.id)}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+                    l.id === selectedId ? "bg-accent" : "hover:bg-accent/50",
+                  )}
+                >
+                  <span className="cursor-grab text-muted-foreground active:cursor-grabbing">⠿</span>
+                  <LayerIcon type={l.type} className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 truncate capitalize">{l.type}</span>
+                  <button
+                    className="text-xs text-destructive hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeLayer(l.id);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+              {panelLayers.length === 0 && (
+                <li className="text-sm text-muted-foreground">No layers yet. Drag one in from the left.</li>
+              )}
+            </ul>
           </div>
-        </section>
+
+          <div className="p-3">
+            {selected ? (
+              <LayerInspector
+                layer={selected}
+                onPatch={(p) => patchLayer(selected.id, p)}
+                onChangePosition={(pos) => changePosition(selected.id, pos)}
+                onRemove={() => removeLayer(selected.id)}
+                openPicker={openPicker}
+                cameras={cameras}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Select a layer to edit it.</p>
+            )}
+          </div>
+        </aside>
       </div>
 
       <MediaPicker
@@ -200,32 +295,109 @@ export default function LayoutBuilderPage() {
   );
 }
 
-/* ---------------- per-layer field editor ---------------- */
+/* ---------------- background panel ---------------- */
 
-function LayerFields({
+function BackgroundPanel({
+  backdrop,
+  resolveMediaUrl,
+  onChange,
+  openPicker,
+}: {
+  backdrop: Backdrop;
+  resolveMediaUrl: MediaResolver;
+  onChange: (patch: Partial<Backdrop>) => void;
+  openPicker: OpenPicker;
+}) {
+  const url = backdrop.mediaId ? resolveMediaUrl(backdrop.mediaId) : undefined;
+  return (
+    <div className="space-y-2 border-t border-border pt-3">
+      <h3 className="text-sm font-medium">Background</h3>
+
+      <label className="flex items-center gap-2">
+        <input
+          type="color"
+          className="size-8 cursor-pointer rounded border border-input bg-background"
+          value={backdrop.color}
+          onChange={(e) => onChange({ color: e.target.value })}
+        />
+        <input
+          className={inputCls}
+          value={backdrop.color}
+          onChange={(e) => onChange({ color: e.target.value })}
+        />
+      </label>
+
+      <div className="space-y-1">
+        <span className={labelCls}>Image / video</span>
+        {url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt="" className="h-16 w-full rounded-md border border-border object-cover" />
+        )}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => openPicker((mediaId) => onChange({ mediaId }))}>
+            {backdrop.mediaId ? "Change" : "Pick image"}
+          </Button>
+          {backdrop.mediaId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => onChange({ mediaId: "" })}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+        {backdrop.mediaId && (
+          <label className="block pt-1">
+            <span className={labelCls}>Fit</span>
+            <select
+              className={inputCls}
+              value={backdrop.fit}
+              onChange={(e) => onChange({ fit: e.target.value as Backdrop["fit"] })}
+            >
+              <option value="cover">cover</option>
+              <option value="contain">contain</option>
+              <option value="fill">fill (stretch)</option>
+            </select>
+          </label>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- per-layer inspector ---------------- */
+
+function LayerInspector({
   layer,
   onPatch,
-  onPatchPos,
+  onChangePosition,
   onRemove,
   openPicker,
-  streams,
+  cameras,
 }: {
   layer: Layer;
   onPatch: (patch: Record<string, unknown>) => void;
-  onPatchPos: (axis: "x" | "y" | "width" | "height", value: number) => void;
+  onChangePosition: (pos: Position) => void;
   onRemove: () => void;
   openPicker: OpenPicker;
-  streams: StreamDoc[];
+  cameras: Camera[];
 }) {
   const num = (v: string) => Math.max(0, Math.min(100, Number(v) || 0));
 
   return (
-    <div className="space-y-3 border-t border-border pt-3">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium capitalize">{layer.type}</h3>
-        <button className="text-xs text-destructive underline" onClick={onRemove}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          onClick={onRemove}
+        >
           Remove
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -235,23 +407,14 @@ function LayerFields({
             <input
               type="number"
               className={inputCls}
-              value={layer.position[axis]}
-              onChange={(e) => onPatchPos(axis, num(e.target.value))}
+              value={Math.round(layer.position[axis])}
+              onChange={(e) => onChangePosition({ ...layer.position, [axis]: num(e.target.value) })}
             />
           </label>
         ))}
-        <label className="block">
-          <span className={labelCls}>z-index</span>
-          <input
-            type="number"
-            className={inputCls}
-            value={layer.zIndex}
-            onChange={(e) => onPatch({ zIndex: Number(e.target.value) || 0 })}
-          />
-        </label>
       </div>
 
-      <TypeFields layer={layer} onPatch={onPatch} openPicker={openPicker} streams={streams} />
+      <TypeFields layer={layer} onPatch={onPatch} openPicker={openPicker} cameras={cameras} />
     </div>
   );
 }
@@ -260,12 +423,12 @@ function TypeFields({
   layer,
   onPatch,
   openPicker,
-  streams,
+  cameras,
 }: {
   layer: Layer;
   onPatch: (patch: Record<string, unknown>) => void;
   openPicker: OpenPicker;
-  streams: StreamDoc[];
+  cameras: Camera[];
 }) {
   switch (layer.type) {
     case "clock":
@@ -317,35 +480,36 @@ function TypeFields({
             placeholder="media id or URL"
             onChange={(e) => onPatch({ mediaId: e.target.value })}
           />
-          <button
-            className="text-xs text-primary underline"
-            onClick={() => openPicker((mediaId) => onPatch({ mediaId }))}
-          >
+          <Button variant="outline" size="sm" onClick={() => openPicker((mediaId) => onPatch({ mediaId }))}>
             Pick from media…
-          </button>
+          </Button>
         </div>
       );
     case "video":
     case "pip":
       return (
         <div className="space-y-1">
-          <span className={labelCls}>Camera</span>
-          <select
-            className={inputCls}
-            value={streams.find((s) => s.hlsUrl === layer.hlsUrl)?.id ?? ""}
-            onChange={(e) => {
-              const stream = streams.find((s) => s.id === e.target.value);
-              onPatch(stream ? { hlsUrl: stream.hlsUrl, streamId: stream.id } : { hlsUrl: "" });
-            }}
-          >
-            <option value="">— pick a camera —</option>
-            {streams.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <span className={labelCls}>or HLS URL</span>
+          {cameras.length > 0 && (
+            <>
+              <span className={labelCls}>Camera</span>
+              <select
+                className={inputCls}
+                value={cameras.find((c) => cameraPlaybackUrl(c) === layer.hlsUrl)?.id ?? ""}
+                onChange={(e) => {
+                  const cam = cameras.find((c) => c.id === e.target.value);
+                  if (cam) onPatch({ hlsUrl: cameraPlaybackUrl(cam) });
+                }}
+              >
+                <option value="">— pick a camera —</option>
+                {cameras.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          <span className={labelCls}>or HLS URL (.m3u8)</span>
           <input
             className={inputCls}
             value={layer.hlsUrl}
@@ -354,36 +518,6 @@ function TypeFields({
           />
         </div>
       );
-    case "camera-grid": {
-      const selectedIds = layer.streamIds;
-      const toggle = (id: string, on: boolean) =>
-        onPatch({
-          streamIds: on ? [...selectedIds, id] : selectedIds.filter((s) => s !== id),
-        });
-      return (
-        <div className="space-y-1">
-          <span className={labelCls}>Cameras (pick up to 4 — rendered as a grid)</span>
-          {streams.length === 0 ? (
-            <p className={labelCls}>No cameras yet — add some on the Cameras page.</p>
-          ) : (
-            streams.map((s) => {
-              const checked = selectedIds.includes(s.id);
-              return (
-                <label key={s.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    disabled={!checked && selectedIds.length >= 4}
-                    onChange={(e) => toggle(s.id, e.target.checked)}
-                  />
-                  {s.name}
-                </label>
-              );
-            })
-          )}
-        </div>
-      );
-    }
     case "slideshow":
       return <SlideshowFields layer={layer} onPatch={onPatch} openPicker={openPicker} />;
     case "message":
@@ -445,21 +579,24 @@ function SlideshowFields({
                 ✕
               </button>
             </div>
-            <button
-              className="text-xs text-primary underline"
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
               onClick={() => openPicker((mediaId) => setItems(items.map((it, j) => (j === i ? { ...it, mediaId } : it))))}
             >
               Pick from media…
-            </button>
+            </Button>
           </div>
         ))}
       </div>
-      <button
-        className="text-xs text-primary underline"
+      <Button
+        variant="outline"
+        size="sm"
         onClick={() => setItems([...items, { mediaId: "", durationSeconds: 8 }])}
       >
-        + add item
-      </button>
+        + Add item
+      </Button>
     </div>
   );
 }

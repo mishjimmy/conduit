@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  LayoutRenderer,
-  type ActiveMessage,
-  type MediaResolver,
-  type StreamResolver,
-} from "@conduit/ui";
+import { LayoutRenderer, type ActiveMessage, type MediaResolver } from "@conduit/ui";
 import type { PlayerManifest } from "@/lib/manifest";
 import { usePlaylistRunner, type SlotView } from "@/lib/playlist";
 
@@ -15,14 +10,12 @@ export function PlaylistScreen({
   online,
   onLayoutChange,
   resolveMediaUrl,
-  resolveStreamUrl,
   message,
 }: {
   manifest: PlayerManifest;
   online: boolean;
   onLayoutChange?: (layoutId: string | null) => void;
   resolveMediaUrl?: MediaResolver;
-  resolveStreamUrl?: StreamResolver;
   message?: ActiveMessage | null;
 }) {
   const { slots, currentLayoutId } = usePlaylistRunner(manifest);
@@ -44,7 +37,6 @@ export function PlaylistScreen({
             slot={slot}
             manifest={manifest}
             resolveMediaUrl={resolveMediaUrl}
-            resolveStreamUrl={resolveStreamUrl}
             message={zoneMessage}
           />
         ))
@@ -80,13 +72,11 @@ function Slot({
   slot,
   manifest,
   resolveMediaUrl,
-  resolveStreamUrl,
   message,
 }: {
   slot: SlotView;
   manifest: PlayerManifest;
   resolveMediaUrl?: MediaResolver;
-  resolveStreamUrl?: StreamResolver;
   message?: ActiveMessage | null;
 }) {
   const layers = slot.layoutId ? (manifest.layouts[slot.layoutId]?.layers ?? []) : [];
@@ -100,12 +90,7 @@ function Slot({
       }}
     >
       {slot.layoutId && (
-        <LayoutRenderer
-          layers={layers}
-          resolveMediaUrl={resolveMediaUrl}
-          resolveStreamUrl={resolveStreamUrl}
-          message={message}
-        />
+        <LayoutRenderer layers={layers} resolveMediaUrl={resolveMediaUrl} message={message} />
       )}
     </div>
   );

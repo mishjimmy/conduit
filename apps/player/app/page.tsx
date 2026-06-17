@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MqttClient } from "mqtt";
 import { POLL_INTERVAL_MS, type ScreenInitResult } from "@conduit/types";
-import type { MediaResolver, StreamResolver } from "@conduit/ui";
+import type { MediaResolver } from "@conduit/ui";
 import {
   baseMessageTopics,
   connectMqtt,
@@ -180,7 +180,6 @@ export default function PlayerPage() {
   const manifest = view.manifest;
   const resolveMediaUrl: MediaResolver = (mediaId) =>
     mediaUrls[mediaId] ?? manifest.media?.[mediaId]?.url ?? (isUrl(mediaId) ? mediaId : undefined);
-  const resolveStreamUrl: StreamResolver = (streamId) => manifest.streams?.[streamId];
 
   return (
     <PlaylistScreen
@@ -188,7 +187,6 @@ export default function PlayerPage() {
       online={online}
       onLayoutChange={onLayoutChange}
       resolveMediaUrl={resolveMediaUrl}
-      resolveStreamUrl={resolveStreamUrl}
       message={activeMessage}
     />
   );

@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, Card, CardContent, CardHeader, CardTitle } from "@conduit/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, buttonVariants, cn } from "@conduit/ui";
 import { createBrowserClient } from "@/lib/appwrite-browser";
 import { createLayout, deleteLayout, listLayouts, type LayoutDoc } from "@/lib/layouts";
+import { PromptDialog } from "@/app/components/PromptDialog";
 
 export default function LayoutsPage() {
   const router = useRouter();
   const [layouts, setLayouts] = useState<LayoutDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
 
   async function refresh() {
     setLayouts(await listLayouts());
@@ -25,10 +27,8 @@ export default function LayoutsPage() {
       .catch(() => router.push("/login"));
   }, [router]);
 
-  async function onCreate() {
-    const name = window.prompt("Layout name", "New layout");
-    if (!name) return;
-    const layout = await createLayout(name.trim());
+  async function onCreate(name: string) {
+    const layout = await createLayout(name);
     router.push(`/layouts/${layout.id}`);
   }
 
@@ -39,15 +39,10 @@ export default function LayoutsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl p-6">
+    <main className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Layouts</h1>
-        <div className="flex items-center gap-4">
-          <Link className="text-sm text-primary underline" href="/screens">
-            Screens
-          </Link>
-          <Button onClick={onCreate}>New layout</Button>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Layouts</h1>
+        <Button onClick={() => setCreateOpen(true)}>New layout</Button>
       </div>
 
       {loading ? (
@@ -64,18 +59,33 @@ export default function LayoutsPage() {
                   <span className="text-xs text-muted-foreground">{l.layers.length} layers</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center gap-4 text-sm">
-                <Link className="text-primary underline" href={`/layouts/${l.id}`}>
+              <CardContent className="flex items-center gap-2">
+                <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/layouts/${l.id}`}>
                   Edit
                 </Link>
-                <button className="text-destructive underline" onClick={() => onDelete(l.id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => onDelete(l.id)}
+                >
                   Delete
-                </button>
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={createOpen}
+        title="New layout"
+        label="Layout name"
+        defaultValue="New layout"
+        submitLabel="Create"
+        onSubmit={onCreate}
+        onClose={() => setCreateOpen(false)}
+      />
     </main>
   );
 }

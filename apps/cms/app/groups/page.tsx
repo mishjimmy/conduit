@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@conduit/ui";
 import { COLLECTIONS, type Screen } from "@conduit/types";
 import { createBrowserClient, PUBLIC_DATABASE_ID } from "@/lib/appwrite-browser";
 import { createGroup, deleteGroup, listGroups, type GroupDoc } from "@/lib/groups";
 import { listPlaylists, type PlaylistDoc } from "@/lib/playlists";
+import { PromptDialog } from "@/app/components/PromptDialog";
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function GroupsPage() {
   const [playlists, setPlaylists] = useState<PlaylistDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   async function refresh() {
     const { databases } = createBrowserClient();
@@ -50,11 +51,10 @@ export default function GroupsPage() {
     return res.json();
   }
 
-  async function onCreate() {
-    const name = window.prompt("Group name", "New group");
-    if (!name) return;
-    await createGroup(name.trim(), "");
+  async function onCreate(name: string) {
+    await createGroup(name, "");
     await refresh();
+    setCreateOpen(false);
   }
 
   async function onDelete(id: string) {
@@ -84,15 +84,10 @@ export default function GroupsPage() {
   const activeScreens = screens.filter((s) => s.status === "active");
 
   return (
-    <main className="mx-auto max-w-4xl p-6">
+    <main className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Groups</h1>
-        <div className="flex items-center gap-4">
-          <Link className="text-sm text-primary underline" href="/screens">
-            Screens
-          </Link>
-          <Button onClick={onCreate}>New group</Button>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Groups</h1>
+        <Button onClick={() => setCreateOpen(true)}>New group</Button>
       </div>
 
       {note && <p className="mb-3 text-sm text-muted-foreground">{note}</p>}
@@ -110,9 +105,14 @@ export default function GroupsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span>{g.name}</span>
-                    <button className="text-xs text-destructive underline" onClick={() => onDelete(g.id)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => onDelete(g.id)}
+                    >
                       Delete
-                    </button>
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
@@ -160,6 +160,16 @@ export default function GroupsPage() {
           })}
         </div>
       )}
+
+      <PromptDialog
+        open={createOpen}
+        title="New group"
+        label="Group name"
+        defaultValue="New group"
+        submitLabel="Create"
+        onSubmit={onCreate}
+        onClose={() => setCreateOpen(false)}
+      />
     </main>
   );
 }

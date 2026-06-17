@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@conduit/ui";
+import { Card, CardContent, CardHeader, CardTitle, cn } from "@conduit/ui";
 import {
   COLLECTIONS,
   screensCollectionChannel,
@@ -12,15 +11,33 @@ import {
 import { createBrowserClient, PUBLIC_DATABASE_ID } from "@/lib/appwrite-browser";
 import { listPlaylists, type PlaylistDoc } from "@/lib/playlists";
 
-function statusColor(status: string) {
-  if (status === "active") return "text-green-600";
-  if (status === "pairing") return "text-amber-600";
-  return "text-muted-foreground";
-}
-
 function isOnline(lastSeen: string | null): boolean {
   if (!lastSeen) return false;
   return Date.now() - new Date(lastSeen).getTime() < 90_000;
+}
+
+function StatusBadge({ status, code }: { status: string; code?: string | null }) {
+  const cls =
+    status === "active"
+      ? "bg-green-500/15 text-green-600"
+      : status === "pairing"
+        ? "bg-amber-500/15 text-amber-600"
+        : "bg-muted text-muted-foreground";
+  return (
+    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize", cls)}>
+      {status}
+      {status === "pairing" && code ? ` · ${code}` : ""}
+    </span>
+  );
+}
+
+function Meta({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={cn("truncate", mono && "font-mono text-xs")}>{value}</dd>
+    </div>
+  );
 }
 
 export default function ScreensPage() {
@@ -66,33 +83,17 @@ export default function ScreensPage() {
     });
   }
 
+  function openScreen(id: string) {
+    router.push(`/screens/${id}`);
+  }
+
   return (
-    <main className="mx-auto max-w-4xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Screens</h1>
-        <div className="flex items-center gap-4">
-          <Link className="text-sm text-primary underline" href="/layouts">
-            Layouts
-          </Link>
-          <Link className="text-sm text-primary underline" href="/playlists">
-            Playlists
-          </Link>
-          <Link className="text-sm text-primary underline" href="/groups">
-            Groups
-          </Link>
-          <Link className="text-sm text-primary underline" href="/media">
-            Media
-          </Link>
-          <Link className="text-sm text-primary underline" href="/streams">
-            Streams
-          </Link>
-          <Link className="text-sm text-primary underline" href="/messages">
-            Messages
-          </Link>
-          <Link className="text-sm text-primary underline" href="/pair">
-            Pair a screen
-          </Link>
-        </div>
+    <main className="mx-auto max-w-5xl p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Screens</h1>
+        <p className="text-sm text-muted-foreground">
+          Select a screen to view its settings, controls, and remote view.
+        </p>
       </div>
 
       {loading ? (
@@ -100,49 +101,72 @@ export default function ScreensPage() {
       ) : screens.length === 0 ? (
         <p className="text-muted-foreground">No screens yet. Boot a player to register one.</p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {screens.map((s) => (
-            <Card key={s.$id}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <Link className="hover:underline" href={`/screens/${s.$id}`}>
-                    {s.name ?? s.$id}
-                  </Link>
-                  <span className={`text-xs ${isOnline(s.last_seen) ? "text-green-600" : "text-muted-foreground"}`}>
-                    {isOnline(s.last_seen) ? "● online" : "○ offline"}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1 text-sm">
-                <div className="font-mono text-xs text-muted-foreground">{s.$id}</div>
-                <div>
-                  Status: <span className={statusColor(s.status)}>{s.status}</span>
-                  {s.status === "pairing" && s.pairing_code ? ` (${s.pairing_code})` : ""}
-                </div>
-                <div>Location: {s.location ?? "—"}</div>
-                <div>MAC: {s.mac}</div>
-                <div>Version: {s.player_version ?? "—"}</div>
-                <div>Resolution: {s.resolution ?? "—"}</div>
-                {s.status === "active" && (
-                  <label className="flex items-center gap-2 pt-1">
-                    <span className="text-xs text-muted-foreground">Playlist</span>
-                    <select
-                      className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                      value={s.playlist_id ?? ""}
-                      onChange={(e) => void assignPlaylist(s.$id, e.target.value)}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {screens.map((s) => {
+            const online = isOnline(s.last_seen);
+            return (
+              <Card
+                key={s.$id}
+                role="link"
+                tabIndex={0}
+                onClick={() => openScreen(s.$id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openScreen(s.$id);
+                  }
+                }}
+                className="group cursor-pointer transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span className="truncate group-hover:underline">{s.name ?? s.$id}</span>
+                    <span
+                      className={cn(
+                        "flex shrink-0 items-center gap-1.5 text-xs font-medium",
+                        online ? "text-green-600" : "text-muted-foreground",
+                      )}
                     >
-                      <option value="">(none)</option>
-                      {playlists.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                      <span className={cn("size-2 rounded-full", online ? "bg-green-500" : "bg-muted-foreground/40")} />
+                      {online ? "Online" : "Offline"}
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <StatusBadge status={s.status} code={s.pairing_code} />
+
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <Meta label="Location" value={s.location ?? "—"} />
+                    <Meta label="MAC" value={s.mac} mono />
+                    <Meta label="Version" value={s.player_version ?? "—"} />
+                    <Meta label="Resolution" value={s.resolution ?? "—"} />
+                  </dl>
+
+                  {s.status === "active" && (
+                    <div
+                      className="flex items-center gap-2 border-t pt-3"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <span className="text-xs text-muted-foreground">Playlist</span>
+                      <select
+                        className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                        value={s.playlist_id ?? ""}
+                        onChange={(e) => void assignPlaylist(s.$id, e.target.value)}
+                      >
+                        <option value="">(none)</option>
+                        {playlists.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </main>

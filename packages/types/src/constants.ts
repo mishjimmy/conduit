@@ -8,7 +8,7 @@ export const COLLECTIONS = {
   playlists: "playlists",
   messages: "messages",
   media: "media",
-  go2rtcStreams: "go2rtc_streams",
+  cameras: "cameras",
 } as const;
 
 export const BUCKETS = {

@@ -27,8 +27,7 @@
                     "type": "string",
                     "size": 17,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "name",
@@ -36,8 +35,7 @@
                     "size": 128,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 },
                 {
                     "key": "location",
@@ -45,8 +43,7 @@
                     "size": 128,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 },
                 {
                     "key": "playlist_id",
@@ -54,8 +51,7 @@
                     "size": 64,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 },
                 {
                     "key": "status",
@@ -68,8 +64,7 @@
                         "disabled"
                     ],
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "pairing_code",
@@ -77,8 +72,7 @@
                     "size": 16,
                     "required": false,
                     "array": false,
-                    "default": "",
-                    "encrypt": false
+                    "default": ""
                 },
                 {
                     "key": "pairing_expires_at",
@@ -100,8 +94,7 @@
                     "size": 32,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 },
                 {
                     "key": "resolution",
@@ -109,16 +102,14 @@
                     "size": 32,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 },
                 {
                     "key": "group_ids",
                     "type": "string",
                     "size": 64,
                     "required": false,
-                    "array": true,
-                    "encrypt": false
+                    "array": true
                 },
                 {
                     "key": "vnc_host",
@@ -126,8 +117,7 @@
                     "size": 256,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 },
                 {
                     "key": "last_screenshot",
@@ -135,8 +125,7 @@
                     "size": 64,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 }
             ],
             "indexes": [
@@ -190,8 +179,7 @@
                     "type": "string",
                     "size": 128,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "description",
@@ -199,8 +187,7 @@
                     "size": 512,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 }
             ],
             "indexes": []
@@ -223,8 +210,7 @@
                     "type": "string",
                     "size": 128,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "resolution",
@@ -232,8 +218,7 @@
                     "size": 16,
                     "required": false,
                     "array": false,
-                    "default": "1920x1080",
-                    "encrypt": false
+                    "default": "1920x1080"
                 },
                 {
                     "key": "layers",
@@ -241,8 +226,7 @@
                     "size": 65535,
                     "required": false,
                     "array": false,
-                    "default": "[]",
-                    "encrypt": false
+                    "default": "[]"
                 }
             ],
             "indexes": []
@@ -265,8 +249,7 @@
                     "type": "string",
                     "size": 128,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "entries",
@@ -274,8 +257,7 @@
                     "size": 65535,
                     "required": false,
                     "array": false,
-                    "default": "[]",
-                    "encrypt": false
+                    "default": "[]"
                 },
                 {
                     "key": "loop",
@@ -306,8 +288,7 @@
                     "size": 64,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 },
                 {
                     "key": "group_id",
@@ -315,16 +296,14 @@
                     "size": 64,
                     "required": false,
                     "array": false,
-                    "default": null,
-                    "encrypt": false
+                    "default": null
                 },
                 {
                     "key": "body",
                     "type": "string",
                     "size": 2048,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "style",
@@ -338,8 +317,7 @@
                     ],
                     "required": false,
                     "array": false,
-                    "default": "info",
-                    "encrypt": false
+                    "default": "info"
                 },
                 {
                     "key": "show_at",
@@ -390,24 +368,21 @@
                     "type": "string",
                     "size": 256,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "type",
                     "type": "string",
                     "size": 32,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "appwrite_file_id",
                     "type": "string",
                     "size": 64,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "size",
@@ -428,8 +403,7 @@
                     "type": "string",
                     "size": 64,
                     "required": false,
-                    "array": true,
-                    "encrypt": false
+                    "array": true
                 }
             ],
             "indexes": []
@@ -452,16 +426,14 @@
                     "type": "string",
                     "size": 128,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "slug",
                     "type": "string",
                     "size": 64,
                     "required": true,
-                    "array": false,
-                    "encrypt": false
+                    "array": false
                 },
                 {
                     "key": "source_url",
@@ -469,20 +441,15 @@
                     "size": 1024,
                     "required": false,
                     "array": false,
-                    "default": "",
-                    "encrypt": false
+                    "default": ""
                 }
             ],
             "indexes": [
                 {
                     "key": "slug",
                     "type": "key",
-                    "attributes": [
-                        "slug"
-                    ],
-                    "orders": [
-                        "ASC"
-                    ]
+                    "attributes": ["slug"],
+                    "orders": ["ASC"]
                 }
             ]
         }

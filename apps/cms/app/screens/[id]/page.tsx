@@ -73,12 +73,12 @@ export default function ScreenDetailPage() {
   const shotUrl = screen.last_screenshot ? fileViewUrl(BUCKETS.screenshots, screen.last_screenshot) : null;
 
   return (
-    <main className="mx-auto max-w-4xl space-y-4 p-6">
+    <main className="mx-auto max-w-5xl space-y-4 p-6">
       <div className="flex items-center gap-3">
-        <button className="text-sm text-primary underline" onClick={() => router.push("/screens")}>
+        <Button variant="outline" size="sm" onClick={() => router.push("/screens")}>
           ← Screens
-        </button>
-        <h1 className="text-2xl font-semibold">{screen.name ?? screen.$id}</h1>
+        </Button>
+        <h1 className="text-2xl font-semibold tracking-tight">{screen.name ?? screen.$id}</h1>
         <span className={`text-xs ${online(screen.last_seen) ? "text-green-600" : "text-muted-foreground"}`}>
           {online(screen.last_seen) ? "● online" : "○ offline"}
         </span>

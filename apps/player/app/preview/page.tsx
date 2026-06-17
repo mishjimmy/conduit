@@ -28,13 +28,9 @@ function Preview() {
   if (!layers) {
     return <div className="flex h-screen w-screen items-center justify-center text-white/50">Loading…</div>;
   }
-  const go2rtc = process.env.NEXT_PUBLIC_GO2RTC_URL ?? "http://localhost:1984";
   return (
     <div className="h-screen w-screen">
-      <LayoutRenderer
-        layers={layers}
-        resolveStreamUrl={(id) => `${go2rtc}/api/stream.m3u8?src=${id}`}
-      />
+      <LayoutRenderer layers={layers} />
     </div>
   );
 }

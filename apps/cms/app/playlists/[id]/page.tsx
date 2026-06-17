@@ -72,11 +72,11 @@ export default function PlaylistEditorPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
+    <main className="mx-auto max-w-5xl p-6">
       <div className="mb-4 flex items-center gap-3">
-        <button className="text-sm text-primary underline" onClick={() => router.push("/playlists")}>
+        <Button variant="outline" size="sm" onClick={() => router.push("/playlists")}>
           ← Playlists
-        </button>
+        </Button>
         <input
           className="max-w-xs flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
           value={name}

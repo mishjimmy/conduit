@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@conduit/ui";
 import { createBrowserClient } from "@/lib/appwrite-browser";
 import {
@@ -12,6 +11,7 @@ import {
   uploadMedia,
   type MediaDoc,
 } from "@/lib/media";
+import { PromptDialog } from "@/app/components/PromptDialog";
 
 function formatSize(bytes: number | null): string {
   if (!bytes) return "—";
@@ -25,6 +25,7 @@ export default function MediaPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tagEdit, setTagEdit] = useState<MediaDoc | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
@@ -57,15 +58,15 @@ export default function MediaPage() {
     }
   }
 
-  async function onEditTags(m: MediaDoc) {
-    const next = window.prompt("Tags (comma-separated)", m.tags.join(", "));
-    if (next === null) return;
-    const tags = next
+  async function saveTags(value: string) {
+    if (!tagEdit) return;
+    const tags = value
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
-    await updateMediaTags(m.id, tags);
+    await updateMediaTags(tagEdit.id, tags);
     await refresh();
+    setTagEdit(null);
   }
 
   async function onDelete(m: MediaDoc) {
@@ -77,14 +78,8 @@ export default function MediaPage() {
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Media</h1>
-        <div className="flex items-center gap-4">
-          <Link className="text-sm text-primary underline" href="/screens">
-            Screens
-          </Link>
-          <Link className="text-sm text-primary underline" href="/layouts">
-            Layouts
-          </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">Media</h1>
+        <div className="flex items-center gap-2">
           <input
             ref={fileRef}
             type="file"
@@ -127,19 +122,36 @@ export default function MediaPage() {
                 <div className="truncate text-muted-foreground" title={m.tags.join(", ")}>
                   {m.tags.length ? m.tags.join(", ") : "no tags"}
                 </div>
-                <div className="flex gap-3 pt-1">
-                  <button className="text-primary underline" onClick={() => onEditTags(m)}>
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setTagEdit(m)}>
                     Tags
-                  </button>
-                  <button className="text-destructive underline" onClick={() => onDelete(m)}>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                    onClick={() => onDelete(m)}
+                  >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={tagEdit !== null}
+        title="Edit tags"
+        label="Tags (comma-separated)"
+        placeholder="lobby, promo"
+        defaultValue={tagEdit?.tags.join(", ") ?? ""}
+        submitLabel="Save"
+        allowEmpty
+        onSubmit={saveTags}
+        onClose={() => setTagEdit(null)}
+      />
     </main>
   );
 }
