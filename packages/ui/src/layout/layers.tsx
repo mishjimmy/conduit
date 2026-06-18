@@ -123,22 +123,23 @@ function WeatherLayer({ layer }: { layer: Extract<Layer, { type: "weather" }> })
   }, [apiKey, layer.location, layer.units]);
 
   const unit = layer.units === "imperial" ? "°F" : "°C";
+  const fs = layer.fontSize;
 
   return (
-    <div style={{ ...fill, ...center, flexDirection: "column", color: "#fff", gap: "1cqh" }}>
-      <div style={{ fontSize: "3.5cqh", opacity: 0.8 }}>{layer.location}</div>
+    <div style={{ ...fill, ...center, flexDirection: "column", color: layer.color, gap: "1cqh" }}>
+      <div style={{ fontSize: `${fs * 0.35}cqh`, opacity: 0.8 }}>{layer.location}</div>
       {data ? (
         <>
-          <div style={{ fontSize: "10cqh", fontWeight: 700 }}>
+          <div style={{ fontSize: `${fs}cqh`, fontWeight: 700 }}>
             {data.temp}
             {unit}
           </div>
-          <div style={{ fontSize: "3cqh", opacity: 0.8, textTransform: "capitalize" }}>
+          <div style={{ fontSize: `${fs * 0.3}cqh`, opacity: 0.8, textTransform: "capitalize" }}>
             {data.description}
           </div>
         </>
       ) : (
-        <div style={{ fontSize: "3cqh", opacity: 0.5 }}>
+        <div style={{ fontSize: `${fs * 0.3}cqh`, opacity: 0.5 }}>
           {error ? "weather unavailable" : !apiKey ? "set OPENWEATHER key" : "loading…"}
         </div>
       )}
@@ -248,7 +249,13 @@ function BackdropLayer({
 }
 
 /** The message zone is empty when idle; the messages system fills it. */
-function MessageLayer({ message }: { message?: ActiveMessage | null }) {
+function MessageLayer({
+  layer,
+  message,
+}: {
+  layer: Extract<Layer, { type: "message" }>;
+  message?: ActiveMessage | null;
+}) {
   if (!message) return null;
   return (
     <div
@@ -256,9 +263,9 @@ function MessageLayer({ message }: { message?: ActiveMessage | null }) {
         ...fill,
         ...center,
         padding: "2cqh 3cqw",
-        color: "#fff",
+        color: layer.color,
         fontWeight: 600,
-        fontSize: "5cqh",
+        fontSize: `${layer.fontSize}cqh`,
         lineHeight: 1.2,
         background: MESSAGE_BG[message.style],
         borderRadius: "1.5cqh",
@@ -284,7 +291,18 @@ function VideoLayer({ url, label }: { url: string; label: string }) {
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = url;
     } else if (Hls.isSupported()) {
-      hls = new Hls({ liveDurationInfinity: true });
+      hls = new Hls({
+        liveDurationInfinity: true,
+        // Low-latency tuning: sit ~1 segment behind the live edge (default is 3)
+        // and gently speed up to catch up when we fall behind, instead of letting
+        // a 3-segment buffer accumulate ~15s of delay. lowLatencyMode uses LL-HLS
+        // parts when the source provides them.
+        lowLatencyMode: true,
+        liveSyncDurationCount: 1,
+        liveMaxLatencyDurationCount: 5,
+        maxLiveSyncPlaybackRate: 1.5,
+        backBufferLength: 15,
+      });
       hls.loadSource(url);
       hls.attachMedia(video);
     } else {
@@ -299,6 +317,19 @@ function VideoLayer({ url, label }: { url: string; label: string }) {
 
   if (!url) return <VideoPlaceholder label={label} />;
   return <video ref={ref} autoPlay muted playsInline style={{ ...fill, objectFit: "cover" }} />;
+}
+
+/**
+ * A camera source: raw HLS (`.m3u8`) plays through hls.js; a go2rtc player page
+ * (or any web player URL) renders in an iframe so it can use WebRTC/MSE.
+ */
+function CameraView({ url, label }: { url: string; label: string }) {
+  if (!url) return <VideoPlaceholder label={label} />;
+  const isEmbed = url.includes("/go2rtc/") || /\.html(\?|#|$)/.test(url);
+  if (isEmbed) {
+    return <iframe src={url} allow="autoplay; fullscreen" style={{ ...fill, border: "none" }} />;
+  }
+  return <VideoLayer url={url} label={label} />;
 }
 
 function VideoPlaceholder({ label, url }: { label: string; url?: string }) {
@@ -357,11 +388,11 @@ export function LayerView({
     case "embed":
       return <EmbedLayer layer={layer} />;
     case "message":
-      return <MessageLayer message={message} />;
+      return <MessageLayer layer={layer} message={message} />;
     case "video":
-      return <VideoLayer url={layer.hlsUrl} label="video" />;
+      return <CameraView url={layer.hlsUrl} label="video" />;
     case "pip":
-      return <VideoLayer url={layer.hlsUrl} label="picture-in-picture" />;
+      return <CameraView url={layer.hlsUrl} label="picture-in-picture" />;
     default:
       return null;
   }

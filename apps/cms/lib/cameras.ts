@@ -2,8 +2,11 @@ import { ID } from "appwrite";
 import { COLLECTIONS } from "@conduit/types";
 import { createBrowserClient, PUBLIC_DATABASE_ID } from "./appwrite-browser";
 
-/** A camera registered for HLS playback. The player/CMS proxy its (often http)
- *  source over https at /cam/<slug>/… so it isn't blocked as mixed content. */
+/**
+ * A camera. `sourceUrl` is either a **go2rtc stream name** (e.g. `front-door`),
+ * played via go2rtc's low-latency player (WebRTC/MSE) under /go2rtc/, or a full
+ * **HLS URL**, proxied over https at /cam/<slug>/… to avoid mixed content.
+ */
 export interface Camera {
   id: string;
   name: string;
@@ -23,15 +26,21 @@ export function slugify(name: string): string {
 
 /** The relative, https-safe URL to put in a layer (resolves on player + CMS). */
 export function cameraPlaybackUrl(camera: Pick<Camera, "slug" | "sourceUrl">): string {
-  if (!camera.sourceUrl) return "";
-  let basename = "index.m3u8";
-  try {
-    const path = new URL(camera.sourceUrl).pathname;
-    basename = path.slice(path.lastIndexOf("/") + 1) || "index.m3u8";
-  } catch {
-    /* keep default */
+  const s = camera.sourceUrl.trim();
+  if (!s) return "";
+  // A full URL is a raw HLS source -> proxy it. Anything else is a go2rtc stream
+  // name -> go2rtc's player (lowest latency it can negotiate: WebRTC, then MSE).
+  if (/^https?:\/\//i.test(s)) {
+    let basename = "index.m3u8";
+    try {
+      const path = new URL(s).pathname;
+      basename = path.slice(path.lastIndexOf("/") + 1) || "index.m3u8";
+    } catch {
+      /* keep default */
+    }
+    return `/cam/${camera.slug}/${basename}`;
   }
-  return `/cam/${camera.slug}/${basename}`;
+  return `/go2rtc/stream.html?src=${encodeURIComponent(s)}`;
 }
 
 function toCamera(doc: Record<string, unknown>): Camera {

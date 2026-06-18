@@ -71,10 +71,11 @@ export default function CamerasPage() {
       </div>
 
       <p className="mb-3 text-sm text-muted-foreground">
-        Register an HLS source (http or https). Conduit proxies it over https at the playback
-        URL shown below, so it isn&apos;t blocked as mixed content — pick the camera in a
-        video/pip layer in the layout builder. Sources whose playlist uses relative segment
-        paths work out of the box.
+        Enter a <strong>go2rtc stream name</strong> (e.g. <code>front-door</code>) for the
+        lowest latency — it&apos;s played through go2rtc&apos;s WebRTC/MSE player. Or paste a
+        full <strong>HLS URL</strong> to proxy that instead. Then pick the camera in a video/pip
+        layer in the layout builder. (go2rtc needs <code>GO2RTC_UPSTREAM</code> set in the server
+        env.)
       </p>
       {note && <p className="mb-3 text-sm text-muted-foreground">{note}</p>}
 
@@ -99,11 +100,11 @@ export default function CamerasPage() {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <label className="block">
-                    <span className={labelCls}>Source HLS URL</span>
+                    <span className={labelCls}>go2rtc stream name (or full HLS URL)</span>
                     <input
                       className={inputCls}
                       value={c.sourceUrl}
-                      placeholder="http://192.168.1.50:8080/live/index.m3u8"
+                      placeholder="front-door  —or—  http://192.168.1.50:8080/live/index.m3u8"
                       onChange={(e) => patch(c.id, { sourceUrl: e.target.value })}
                     />
                   </label>

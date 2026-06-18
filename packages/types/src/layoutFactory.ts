@@ -39,9 +39,9 @@ export function createLayer(type: LayerType, zIndex: number): Layer {
     case "graphic":
       return { ...base, type, mediaId: "" };
     case "message":
-      return { ...base, type };
+      return { ...base, type, color: "#ffffff", fontSize: 5 };
     case "weather":
-      return { ...base, type, location: "London", units: "metric" };
+      return { ...base, type, location: "London", units: "metric", color: "#ffffff", fontSize: 10 };
     case "clock":
       return { ...base, type, format: "24h", showDate: true, color: "#ffffff", fontSize: 12 };
     case "embed":

@@ -44,6 +44,9 @@ export const graphicLayerSchema = z.object({
 export const messageLayerSchema = z.object({
   ...baseLayer,
   type: z.literal("message"),
+  color: z.string().default("#ffffff"),
+  /** Message text size, in % of the canvas height (cqh). */
+  fontSize: z.number().positive().default(5),
 });
 
 export const weatherLayerSchema = z.object({
@@ -51,6 +54,9 @@ export const weatherLayerSchema = z.object({
   type: z.literal("weather"),
   location: z.string(),
   units: z.enum(["metric", "imperial"]).default("metric"),
+  color: z.string().default("#ffffff"),
+  /** Temperature text size, in % of the canvas height (cqh); rest scales with it. */
+  fontSize: z.number().positive().default(10),
 });
 
 export const clockLayerSchema = z.object({

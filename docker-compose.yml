@@ -96,6 +96,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      # External go2rtc reachable from the server, e.g. 10.0.0.30:1984. Proxied
+      # under /go2rtc/ for the low-latency camera player.
+      GO2RTC_UPSTREAM: ${GO2RTC_UPSTREAM:-}
     volumes:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

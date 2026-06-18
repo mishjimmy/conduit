@@ -432,6 +432,45 @@ function LayerInspector({
   );
 }
 
+/** Reusable Color + Size inputs for any text-bearing layer. */
+function ColorSizeFields({
+  color,
+  fontSize,
+  onPatch,
+}: {
+  color: string;
+  fontSize: number;
+  onPatch: (patch: Record<string, unknown>) => void;
+}) {
+  return (
+    <>
+      <div>
+        <span className={labelCls}>Color</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            className="size-8 cursor-pointer rounded border border-input bg-background"
+            value={color}
+            onChange={(e) => onPatch({ color: e.target.value })}
+          />
+          <input className={inputCls} value={color} onChange={(e) => onPatch({ color: e.target.value })} />
+        </div>
+      </div>
+      <label className="block">
+        <span className={labelCls}>Size (% of height)</span>
+        <input
+          type="number"
+          step="0.5"
+          min="1"
+          className={inputCls}
+          value={fontSize}
+          onChange={(e) => onPatch({ fontSize: Math.max(1, Number(e.target.value) || 1) })}
+        />
+      </label>
+    </>
+  );
+}
+
 function TypeFields({
   layer,
   onPatch,
@@ -458,29 +497,7 @@ function TypeFields({
             <input type="checkbox" checked={layer.showDate} onChange={(e) => onPatch({ showDate: e.target.checked })} />
             Show date
           </label>
-          <div className="block">
-            <span className={labelCls}>Color</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                className="size-8 cursor-pointer rounded border border-input bg-background"
-                value={layer.color}
-                onChange={(e) => onPatch({ color: e.target.value })}
-              />
-              <input className={inputCls} value={layer.color} onChange={(e) => onPatch({ color: e.target.value })} />
-            </div>
-          </div>
-          <label className="block">
-            <span className={labelCls}>Size (% of height)</span>
-            <input
-              type="number"
-              step="0.5"
-              min="1"
-              className={inputCls}
-              value={layer.fontSize}
-              onChange={(e) => onPatch({ fontSize: Math.max(1, Number(e.target.value) || 1) })}
-            />
-          </label>
+          <ColorSizeFields color={layer.color} fontSize={layer.fontSize} onPatch={onPatch} />
         </div>
       );
     case "weather":
@@ -497,6 +514,7 @@ function TypeFields({
               <option value="imperial">imperial (°F)</option>
             </select>
           </label>
+          <ColorSizeFields color={layer.color} fontSize={layer.fontSize} onPatch={onPatch} />
         </div>
       );
     case "embed":
@@ -566,29 +584,7 @@ function TypeFields({
               onChange={(e) => onPatch({ text: e.target.value })}
             />
           </label>
-          <div className="block">
-            <span className={labelCls}>Color</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                className="size-8 cursor-pointer rounded border border-input bg-background"
-                value={layer.color}
-                onChange={(e) => onPatch({ color: e.target.value })}
-              />
-              <input className={inputCls} value={layer.color} onChange={(e) => onPatch({ color: e.target.value })} />
-            </div>
-          </div>
-          <label className="block">
-            <span className={labelCls}>Size (% of height)</span>
-            <input
-              type="number"
-              step="0.5"
-              min="1"
-              className={inputCls}
-              value={layer.fontSize}
-              onChange={(e) => onPatch({ fontSize: Math.max(1, Number(e.target.value) || 1) })}
-            />
-          </label>
+          <ColorSizeFields color={layer.color} fontSize={layer.fontSize} onPatch={onPatch} />
           <label className="block">
             <span className={labelCls}>Font</span>
             <select
@@ -633,7 +629,15 @@ function TypeFields({
     case "slideshow":
       return <SlideshowFields layer={layer} onPatch={onPatch} openPicker={openPicker} />;
     case "message":
-      return <p className={labelCls}>Driven by the messages system (M5). Empty when idle.</p>;
+      return (
+        <div className="space-y-2">
+          <p className={labelCls}>
+            Text/urgency come from the Messages system; the background follows the message style.
+            Color and size below style how messages render in this zone.
+          </p>
+          <ColorSizeFields color={layer.color} fontSize={layer.fontSize} onPatch={onPatch} />
+        </div>
+      );
     default:
       return null;
   }

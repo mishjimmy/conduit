@@ -14,13 +14,27 @@
 	local_certs
 }
 
+# External go2rtc (set GO2RTC_UPSTREAM=host:1984 in .env) is proxied under
+# /go2rtc/ on both vhosts so its low-latency player (WebRTC/MSE) loads over https
+# and its WebSocket upgrades work. handle_path strips the prefix before proxying.
+
 conduit.local {
-	# CMS (management UI)
-	reverse_proxy cms:3000
+	handle_path /go2rtc/* {
+		reverse_proxy {$GO2RTC_UPSTREAM}
+	}
+	handle {
+		# CMS (management UI)
+		reverse_proxy cms:3000
+	}
 }
 
 conduitplayer.local {
-	reverse_proxy player:3001
+	handle_path /go2rtc/* {
+		reverse_proxy {$GO2RTC_UPSTREAM}
+	}
+	handle {
+		reverse_proxy player:3001
+	}
 }
 
 conduitmqtt.local {
