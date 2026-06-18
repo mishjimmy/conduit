@@ -431,7 +431,7 @@ function LayerInspector({
     </div>
   );
 }
-
+/*  */
 /** Reusable Color + Size inputs for any text-bearing layer. */
 function ColorSizeFields({
   color,

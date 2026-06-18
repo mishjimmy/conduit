@@ -40,7 +40,8 @@ export function cameraPlaybackUrl(camera: Pick<Camera, "slug" | "sourceUrl">): s
     }
     return `/cam/${camera.slug}/${basename}`;
   }
-  return `/go2rtc/stream.html?src=${encodeURIComponent(s)}`;
+  // Force WebRTC for the lowest latency (no MSE/HLS fallback).
+  return `/go2rtc/stream.html?src=${encodeURIComponent(s)}&mode=webrtc`;
 }
 
 function toCamera(doc: Record<string, unknown>): Camera {
